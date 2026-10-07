@@ -8,7 +8,7 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 
 | Column | Source (Mechon Mamre) | Notes |
 |---|---|---|
-| Hebrew | `ct005` with cantillation | The **א / אָ / אָ; / אָ֑** buttons show it as letters only, with vowels (the cantillated text with its accents removed), with vowels and Mechon Mamre's punctuation (`t002`), or with cantillation. |
+| Hebrew | `ct005` with cantillation | The Display menu shows it as letters only, with vowels (the cantillated text with its accents removed), with vowels and Mechon Mamre's punctuation (`t002`), or with cantillation. |
 | Targum | `u002` / `q001` | Torah only. It is shown unpointed when the Hebrew is shown as letters only. |
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
@@ -22,7 +22,16 @@ The texts themselves are read-only. Only the commentary and review notes are edi
 - **Parashot** lists the 54 weekly portions as the **Tiqqun Qore'im** (`cp002`) divides them. Each one opens as a single page running across chapters (`#/portion/0101`), with tabs for its haftarah (Ashkenazi and Sephardi where they differ, `#/portion/0101/ash`, `/sef`).
 - **Holidays** lists the festivals' and special Shabbatot's readings (`#/portion/r05`), from Mechon Mamre's reading table.
 
-Open sections (petuchah) and closed sections (setumah) appear as wide and narrow gaps after their verses, with a small פ or ס in the Hebrew. The songs keep their line layout. Ktiv and qere show as the written form followed by the read form in parentheses.
+### Two layouts
+
+The first buttons in the reader's header switch between them.
+
+- **Interlinear**: one row per verse, the texts side by side, the commentary and review notes under each verse. The section marks show as they stand in the text (`{פ}`, `{ס}`, `{ר}`, `{ש}`, and the English's `{P}`, `{S}`, `{N}`), small and grey, and nothing is laid out by them.
+- **Scroll**: the Hebrew alone, set as a scroll sets it. An open section (`{פ}`) ends its paragraph, and what follows starts on a new line. A closed section (`{ס}`) is a gap within the line. In the songs and lists written in their own layout (the Song of the Sea, Ha'azinu, the kings of Joshua 12, the sons of Haman), each line ends at `{ר}` and its parts are spread across the column, which gives the brick patterns. `{ש}` is a blank line. The verse numbers stand in a margin at the right, each level with the line its verse starts on, with a dot when the verse has commentary (grey) or review notes (brown). Select a verse, by its number or its text, to open it in the panel beside the scroll: its translation and Targum, and its commentary and review notes, which are read and edited there as in the interlinear rows. On narrow screens the panel rises from the bottom. **j** / **k** move to the next and previous verse, and **Esc** closes it.
+
+Everything else about how the text looks is in the **Display** menu, whose button shows the Hebrew's current mode: the Hebrew's four modes and which columns show. In the scroll layout those are the columns shown in the panel.
+
+Ktiv and qere show as the written form followed by the read form in parentheses.
 
 ## Running it
 
@@ -71,7 +80,7 @@ Book ids are Mechon Mamre's: `01`–`05` are the Torah, `08a`/`08b` are Samuel, 
 
 Inside a verse:
 - `{פ}` `{ס}` `{ר}` `{ש}` are Mechon Mamre's section and layout marks (`{P}` `{S}` `{N}` in the English).
-- A newline is a line break.
+- A newline is a line end (in the songs and lists, as `{ר}` is).
 - `<big>`, `<small>` and `<sup>` mark large, small and suspended letters.
 - `(…)` is the qere.
 
@@ -101,9 +110,10 @@ The same layout as MT Reader. Every script attaches itself to `window.TR`.
 |---|---|
 | `js/format.js` | Parses and writes the texts, layer paths, and strips te'amim and niqqud |
 | `js/library.js` | The index (books, parashot, readings), loading a book's layers, the Hebrew view modes |
-| `js/reader.js` | The chapter and portion views, columns, notes, editing, bookmarks |
+| `js/reader.js` | The chapter and portion views in both layouts, the Display menu, the scroll's verse panel, notes, editing, bookmarks |
+| `js/scroll.js` | The scroll layout: the text cut into paragraphs, song lines and blank lines by its section marks, and the verse numbers' margin |
 | `js/books.js` | Home screens: Books, Parashot, Holidays |
-| `js/markdown.js` | Inline Markdown for notes, and verse rendering (section marks, ktiv/qere, large letters) |
+| `js/markdown.js` | Inline Markdown for notes, and verse rendering for the interlinear layout (section marks as written, ktiv/qere, large letters) |
 | `js/search.js` | Search over Hebrew, Targum, English and notes; matches with or without vowels |
 | `js/edit.js`, `merge.js`, `submit.js`, `changes.js`, `review.js`, `branches.js`, `session.js` | Drafts, merging, pull requests, reviewing branches, live sessions (from MT Reader) |
 | `tools/import.mjs` | Builds the `tanakh` repo from the zips |

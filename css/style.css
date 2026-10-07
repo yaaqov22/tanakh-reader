@@ -545,10 +545,6 @@ a.crumb:hover { color: var(--accent); }
 .passage-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0; font-size: 21px; }
 .passage-sub { font-family: var(--font-ui); font-size: 13.5px; font-weight: 400; color: var(--faint); }
 
-/* Sections, as in a scroll: a wide gap after a verse that closes an open
-   section (petuchah), a narrower one after a closed section (setumah). */
-.grid .row.law.pe { border-bottom: 0; margin-bottom: 26px; }
-.grid .row.law.samekh { border-bottom-style: dashed; margin-bottom: 8px; }
 .row.general { padding-top: 6px; padding-bottom: 6px; }
 .grid.show-co .row.general .annmark { display: none; }
 .row.general .cell.co p { max-width: 760px; }
@@ -602,17 +598,18 @@ a.crumb:hover { color: var(--accent); }
 }
 .cell.he .label, .cell.tg .label { font-family: var(--font-he); font-size: 15px; vertical-align: 1px; }
 
-/* Marks inside a verse (markdown.js verse()). The section letters show
-   small; the rest are layout. */
-.mark.pe, .mark.samekh {
-  display: inline-block;
-  margin: 0 0.3em;
+/* Section marks inside a verse, interlinear (markdown.js verse()): as they
+   stand in the text, braces and all, quietly. */
+.mark {
   color: var(--faint);
-  font-size: 0.68em;
-  vertical-align: 0.3em;
+  font-family: var(--font-ui);
+  font-size: 0.62em;
+  white-space: nowrap;
+  unicode-bidi: isolate;
   user-select: none;
+  cursor: help;
 }
-.mark.line, .mark.song, .mark.en-p, .mark.en-s { display: none; }
+.cell.he .mark, .cell.tg .mark { font-family: var(--font-he); font-size: 0.72em; }
 .gap { display: inline-block; width: 2.2em; }
 .qere { color: var(--dim); }
 .ltr-big { font-size: 1.35em; line-height: 1; }
@@ -624,8 +621,188 @@ a.crumb:hover { color: var(--accent); }
 .grid.mode-pointed .cell.he, .grid.mode-punct .cell.he, .cell.tg { line-height: 1.85; }
 .grid.mode-teamim .cell.he { line-height: 2; }
 
-/* The Hebrew's four ways, beside the column buttons. */
-.hemodes .seg.glyph.he { width: 38px; font-size: 18px; }
+/* The Display menu: the Hebrew's four ways, then which columns show. Its
+   button shows the Hebrew's way. */
+.dispwrap { position: relative; }
+.seg.dispbtn { width: auto; gap: 2px; padding: 0 6px 0 10px; }
+.seg.dispbtn .he { font-family: var(--font-he); font-size: 19px; line-height: 1; color: var(--text); }
+.seg.dispbtn svg { width: 15px; height: 15px; }
+.seg.dispbtn[aria-expanded="true"] { background: var(--panel-lit); }
+.dispmenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 252px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+}
+.dm-head { margin: 2px 4px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.dm-head:not(:first-child) { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.dm-sub { margin: 5px 4px 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); }
+.dispmenu .hemodes { display: flex; }
+.hemodes .seg.glyph.he { flex: 1; width: auto; font-size: 18px; }
+.dm-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.dm-item:hover { background: var(--panel-lit); }
+.dm-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dm-check { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 4px; color: transparent; }
+.dm-check svg { width: 14px; height: 14px; stroke-width: 2.4; }
+.dm-item[aria-pressed="true"] .dm-check { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+@media (max-width: 480px) {
+  .dispwrap { position: static; }
+  .dispmenu { right: 8px; top: calc(100% + 2px); }
+}
+
+/* ------------------------------------------------------------ the scroll */
+
+/* The scroll and, beside it, the chosen verse's panel. The scroll is its
+   text (as scroll.js sets it) and a margin of verse numbers at its right,
+   where Hebrew lines begin. */
+.grid.scrollmode {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  column-gap: 36px;
+  align-items: start;
+  padding-top: 8px;
+}
+.grid.scrollmode > .vpanel { grid-column: 1; grid-row: 1; }
+.grid.scrollmode > .sc-main { grid-column: 2; grid-row: 1; min-width: 0; }
+.grid.scrollmode .row.passage { max-width: none; margin: 0; }
+
+.scroll {
+  display: grid;
+  grid-template-columns: minmax(0, 700px) 52px;
+  column-gap: 14px;
+  justify-content: center;
+  padding: 18px 0 28px;
+}
+.sc-text {
+  font-family: var(--font-he);
+  font-size: 23px;
+  line-height: 1.9;
+  text-align: justify;
+}
+.grid.mode-teamim .sc-text { line-height: 2.05; }
+.grid.mode-plain .sc-text { line-height: 1.75; }
+
+/* A paragraph runs to an open section; the line it ends on is left open. */
+.sc-para { margin: 0 0 0.35em; text-align-last: start; }
+/* A closed section: a gap within the line, as a scroll leaves nine letters. */
+.sc-gap { display: inline-block; width: 3.2em; }
+/* A line of a song or list: its parts spread across the column. */
+.sc-line { display: flex; flex-wrap: wrap; gap: 0 2.5em; }
+.sc-line.spread { justify-content: space-between; }
+.sc-blank { height: 1.9em; }
+
+/* A verse's pieces, lit together on hover, held when chosen. */
+.vs { border-radius: 3px; cursor: pointer; scroll-margin-top: calc(var(--topbar-h) + var(--rhead-h, 90px) + 24px); }
+.vs.hover { background: var(--panel-lit); box-shadow: 0 0 0 2px var(--panel-lit); }
+.vs.sel { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+.vs.target { background: var(--target); box-shadow: 0 0 0 2px var(--target); }
+.vs.branched { text-decoration: underline 2px var(--up); text-underline-offset: 0.35em; }
+.grid.editing .vs { cursor: pointer; }
+
+/* The numbers margin: each verse's number level with the line it starts
+   on (reader.js measures it there), with a dot for each kind of note. */
+.sc-nums { position: relative; }
+.sc-nrow { position: absolute; left: 0; right: 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 2px; white-space: nowrap; }
+.sc-n {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--faint);
+  font-family: var(--font-he);
+  font-size: 14px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.sc-n.ch { color: var(--dim); font-weight: 700; }
+.sc-n:hover, .sc-n.hover { color: var(--accent); background: var(--panel-lit); }
+.sc-n.sel { color: var(--accent); background: var(--accent-soft); }
+.sc-n.marked { box-shadow: inset 0 -2px 0 var(--accent); }
+.sc-n:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.sc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+.sc-dot.notes { background: var(--accent); }
+.sc-dot.changed { background: var(--edit); }
+.sc-dot.branched { background: var(--up); }
+
+/* The panel: sticky beside the scroll on a wide screen. */
+.vpanel {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--rhead-h, 90px) + 12px);
+  max-height: calc(100vh - var(--topbar-h) - var(--rhead-h, 90px) - 24px);
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.grid .row.law.vpanel { display: block; max-width: none; margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+.vpanel.empty { background: none; border-style: dashed; }
+.vp-hint, .vp-none { margin: 0; color: var(--faint); font-size: 14px; line-height: 1.5; }
+.vpanel.empty .cell.co { margin-top: 14px; font-size: 14.5px; color: var(--dim); }
+.vp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.vp-ref { display: flex; flex-direction: column; gap: 1px; color: var(--text); text-decoration: none; font-family: var(--font); font-size: 17px; }
+.vp-ref:hover strong { color: var(--accent); }
+.vp-he { font-family: var(--font-he); font-size: 16px; color: var(--dim); text-align: left; }
+.vp-tools { display: flex; align-items: center; gap: 0; }
+.vp-tools .iconbtn { width: 30px; height: 30px; min-width: 30px; }
+.vp-tools .iconbtn svg { width: 18px; height: 18px; }
+.vp-tools .iconbtn:disabled { opacity: 0.3; cursor: default; }
+.vp-tools .bmk { opacity: 1; }
+.grid .row.vpanel > .text { display: flex; flex-direction: column; gap: 10px; }
+.vpanel .cell.tg { font-size: 18px; }
+.vpanel .cell.en { font-size: 16px; }
+.vpanel .notelist { grid-template-columns: minmax(0, 1fr); }
+.vpanel .ann .cell:first-child { margin-top: 14px; }
+.vpanel .vp-none { margin-top: 14px; }
+
+/* Narrower: the scroll takes the width, and the panel rises from the
+   bottom while a verse is chosen. */
+@media (max-width: 1100px) {
+  .grid.scrollmode { display: block; }
+  .grid.scrollmode.chosen { padding-bottom: 46vh; }
+  .vpanel.empty { display: none; }
+  .vpanel {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 18;
+    max-height: 44vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: var(--shadow);
+  }
+  .grid .row.law.vpanel { padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 640px) {
+  .scroll { grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
+  .sc-text { font-size: 20px; }
+  .sc-gap { width: 2.2em; }
+  .sc-line { gap: 0 1.2em; }
+  .sc-n { font-size: 13px; padding: 1px 2px; }
+}
 
 div.note { margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--line); }
 div.note:last-child { margin-bottom: 0; }
