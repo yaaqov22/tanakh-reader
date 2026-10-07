@@ -1,6 +1,17 @@
-/* The reader: one row per verse, the Hebrew, the Targum and the English side
-   by side, with the commentary and review notes on it beneath. Two routes
-   draw it:
+/* The reader, in one of two layouts (the header's first buttons):
+
+   INTERLINEAR: one row per verse, the Hebrew, the Targum and the English
+   side by side, with the commentary and review notes on it beneath.
+
+   SCROLL: the Hebrew alone, set as a scroll sets it, in blocks shaped by its
+   section marks (scroll.js). The verse numbers stand in a margin of their
+   own, beside the lines the verses start on, with a dot for each kind of
+   note a verse has. Selecting a verse (its number, or its text) opens it in
+   a panel beside the scroll: its translation and Targum, as the Display menu
+   chooses, and its commentary and review notes, to read and edit as in the
+   interlinear rows. On a narrow screen the panel rises from the bottom.
+
+   Two routes draw it:
 
    #/read/01/3       Genesis, chapter 3
    #/read/01/3/5     …scrolled to verse 5 and highlighted
@@ -26,13 +37,13 @@
    THE HEBREW shows in one of four ways (lib.view): the letters alone, with
    vowels, with vowels and Mechon Mamre's punctuation, or with cantillation.
    The Targum follows it: unpointed when the Hebrew is. Which columns show is
-   a device setting, toggled in the header's button group. A notes layer that
+   a device setting, chosen in the header's Display menu. A notes layer that
    is hidden still says, beside each verse, how many notes it has there;
    clicking that opens them for the one verse. Under 900px the columns stack.
 
-   SECTIONS. A verse that ends an open section (petuchah, {פ}) is followed
-   by a wide gap, one that ends a closed section (setumah, {ס}) by a narrower
-   one, as in a scroll; the marks themselves show small in the Hebrew.
+   SECTIONS. Interlinear, the section marks ({פ} {ס} {ר} {ש}, and the
+   English's {P} {S} {N}) show as they stand in the text, and nothing is laid
+   out by them: rows are rows. Laying the text out by them is the scroll's.
 
    REVIEWING. Reading a branch other than its base, what the branch changed
    is marked in blue, note by note, with its diff (review.js).
@@ -446,15 +457,14 @@
 
   /* Select a phrase in a verse and this floats above it: add a commentary
      or review note quoting it, or bookmark the verse. */
-  let picked = null;   // { row, phrase }
+  let picked = null;   // { ctx, key, phrase, row }: row is null in the scroll's text
   const seltools = UI.el('div.seltools', { role: 'toolbar', 'aria-label': 'Note on the selection' }, [
     selBtn('co', 'Comment'), selBtn('notes', 'Review note'), UI.el('button', {
       type: 'button', text: 'Bookmark',
       onmousedown: function (e) { e.preventDefault(); },
       onclick: function () {
         if (!picked) return;
-        const ctx = picked.row._ctx;
-        const key = picked.row.getAttribute('data-key');
+        const ctx = picked.ctx, key = picked.key;
         hideSel();
         TR.bookmarks.add(ctx.id, key, ctx.title);
         UI.toast('Bookmarked ' + ctx.title + ' ' + key + '.');
@@ -470,13 +480,21 @@
       onmousedown: function (e) { e.preventDefault(); },   // keep the selection
       onclick: function () {
         if (!picked) return;
-        const row = picked.row, phrase = picked.phrase;
+        const p = picked;
         hideSel();
         const s = window.getSelection();
         if (s) s.removeAllRanges();
-        /* The note goes under the verse, so open its notes if they're hidden. */
-        row.classList.add('open');
-        newNote(row._ctx, row.querySelector('.cell.' + layer), layer, row.getAttribute('data-key'), phrase);
+        /* The note goes under the verse, so open its notes if they're
+           hidden; in the scroll, it goes in the verse's panel. */
+        if (p.row) {
+          p.row.classList.add('open');
+          newNote(p.ctx, p.row.querySelector('.cell.' + layer), layer, p.key, p.phrase);
+          return;
+        }
+        choose(live.scroll.byKey.get(p.ctx.id + ' ' + p.key), false).then(function () {
+          const panel = live && live.scroll && live.scroll.panel;
+          if (panel && panel.classList.contains('row')) newNote(p.ctx, panel.querySelector('.cell.' + layer), layer, p.key, p.phrase);
+        });
       }
     });
   }
@@ -504,12 +522,26 @@
     const range = s.getRangeAt(0);
     let node = range.commonAncestorContainer;
     if (node.nodeType !== 1) node = node.parentNode;
-    const c = node && node.closest('.cell.he, .cell.tg, .cell.en');
-    const row = c && c.closest('.row.law');
-    if (!row || !row._ctx || c.closest('.editor') || !live.grid.contains(row)) return hideSel();
+    const c = node && node.closest('.cell.he, .cell.tg, .cell.en, .sc-text');
+    if (!c || c.closest('.editor') || !live.grid.contains(c)) return hideSel();
+    let row = null, ctx, key;
+    if (c.classList.contains('sc-text')) {
+      /* In the scroll, the verse the selection starts in. */
+      let start = range.startContainer;
+      if (start.nodeType !== 1) start = start.parentNode;
+      const vs = start.closest('.vs') || start.querySelector('.vs');
+      if (!vs || !vs._ctx) return hideSel();
+      ctx = vs._ctx;
+      key = vs.getAttribute('data-key');
+    } else {
+      row = c.closest('.row.law');
+      if (!row || !row._ctx) return hideSel();
+      ctx = row._ctx;
+      key = row.getAttribute('data-key');
+    }
     const phrase = phraseOf(range);
     if (!phrase) return hideSel();
-    picked = { row: row, phrase: phrase };
+    picked = { row: row, ctx: ctx, key: key, phrase: phrase };
     const r = range.getBoundingClientRect();
     seltools.hidden = false;
     seltools.style.top = Math.max(0, r.top + window.scrollY - seltools.offsetHeight - 8) + 'px';
@@ -544,26 +576,70 @@
 
   /* ---------------------------------------------------------------- head */
 
-  /* Which columns show, and how the Hebrew shows, as groups of buttons. */
-  function viewGroups(grid, page) {
-    const cols = TR.device.get('cols');
-    const col = function (key, title, content, cls) {
-      const b = UI.el('button.seg' + (cls ? '.' + cls : ''), {
-        type: 'button', 'aria-pressed': cols[key] ? 'true' : 'false', 'data-col': key,
-        title: title, 'aria-label': title,
+  /* The header's controls are few: the layout (interlinear or scroll), the
+     Display menu, and editing (with marking a branch's changes, when reading
+     one). Everything about how the text looks — the Hebrew's four ways, and
+     which columns show — is in the Display menu, whose button shows the
+     Hebrew's way at a glance. */
+
+  function layout() {
+    return TR.device.get('layout') === 'scroll' ? 'scroll' : 'lines';
+  }
+
+  const LAYOUT = {
+    lines: { icon: 'lines', title: 'Interlinear: verse by verse, the texts side by side' },
+    scroll: { icon: 'scroll', title: 'Scroll: the Hebrew set as in a scroll, by its sections' }
+  };
+
+  function layoutToggle() {
+    return UI.el('div.segs', { role: 'group', 'aria-label': 'Layout' }, Object.keys(LAYOUT).map(function (m) {
+      return UI.el('button.seg', {
+        type: 'button', 'aria-pressed': m === layout() ? 'true' : 'false',
+        title: LAYOUT[m].title, 'aria-label': LAYOUT[m].title,
         onclick: function () {
-          const next = TR.device.get('cols');
-          next[key] = !next[key];
-          /* Some text always shows. */
-          if (!TEXT.some(function (k) { return next[k] && (k !== 'tg' || page.targum); })) return;
-          TR.device.set({ cols: next });
-          b.setAttribute('aria-pressed', next[key] ? 'true' : 'false');
-          applyCols(grid);
+          if (m === layout()) return;
+          TR.editor.close().then(function () {
+            TR.device.set({ layout: m });
+            UI.refresh();
+          });
         }
-      }, content);
-      return b;
-    };
+      }, [TR.icons[LAYOUT[m].icon]()]);
+    }));
+  }
+
+  /* The Display menu stays open across the repaints its own choices cause. */
+  let displayOpen = false;
+
+  function setDisplay(open) {
+    displayOpen = open;
+    const wrap = document.querySelector('.screen.on .dispwrap');
+    if (!wrap) return;
+    wrap.querySelector('.dispmenu').hidden = !open;
+    wrap.querySelector('.dispbtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!displayOpen || !document.contains(e.target)) return;   // a choice that has repainted the menu
+    const wrap = document.querySelector('.screen.on .dispwrap');
+    if (!wrap || !wrap.contains(e.target)) setDisplay(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !displayOpen) return;
+    e.preventDefault();   // this Escape is the menu's, not the verse panel's
+    setDisplay(false);
+    const b = document.querySelector('.screen.on .dispbtn');
+    if (b) b.focus();
+  });
+
+  function displayMenu(grid, page) {
+    const scroll = layout() === 'scroll';
     const mode = heMode();
+    const btn = UI.el('button.seg.dispbtn', {
+      type: 'button', 'aria-haspopup': 'true', 'aria-expanded': displayOpen ? 'true' : 'false',
+      title: 'Display: ' + HE_MODE[mode].title.toLowerCase() + '; the columns', 'aria-label': 'Display',
+      onclick: function () { setDisplay(!displayOpen); }
+    }, [UI.el('span.he', { lang: 'he', text: HE_MODE[mode].glyph }), TR.icons.chevron()]);
+
     const modes = Object.keys(HE_MODE).map(function (m) {
       return UI.el('button.seg.glyph.he', {
         type: 'button', lang: 'he', text: HE_MODE[m].glyph, 'data-mode': m,
@@ -577,16 +653,40 @@
         }
       });
     });
-    return [
+
+    const cols = TR.device.get('cols');
+    const col = function (key, label) {
+      const b = UI.el('button.dm-item', {
+        type: 'button', 'aria-pressed': cols[key] ? 'true' : 'false',
+        onclick: function () {
+          const next = TR.device.get('cols');
+          next[key] = !next[key];
+          /* Interlinear, some text always shows. */
+          if (!scroll && !TEXT.some(function (k) { return next[k] && (k !== 'tg' || page.targum); })) return;
+          TR.device.set({ cols: next });
+          b.setAttribute('aria-pressed', next[key] ? 'true' : 'false');
+          applyCols(grid);
+        }
+      }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: label })]);
+      return b;
+    };
+
+    const menu = UI.el('div.dispmenu', { role: 'group', 'aria-label': 'Display' }, [
+      UI.el('div.dm-head', { text: 'Hebrew' }),
       UI.el('div.segs.hemodes', { role: 'group', 'aria-label': 'Hebrew' }, modes),
-      UI.el('div.segs', { role: 'group', 'aria-label': 'Show' }, [
-        col('he', 'Hebrew', UI.el('span', { lang: 'he', text: 'עב' }), 'glyph.he'),
-        page.targum ? col('tg', 'Targum Onqelos', UI.el('span', { lang: 'he', text: 'תר' }), 'glyph.he') : null,
-        col('en', 'English', 'En', 'glyph'),
-        col('co', 'Commentary', TR.icons.comment()),
-        col('notes', 'Review notes', TR.icons.note())
-      ])
-    ];
+      UI.el('p.dm-sub', { text: HE_MODE[mode].title }),
+      UI.el('div.dm-head', { text: scroll ? 'Beside the scroll' : 'Columns' }),
+      scroll ? null : col('he', 'Hebrew'),
+      page.targum ? col('tg', 'Targum Onqelos') : null,
+      col('en', 'English (JPS 1917)'),
+      scroll ? null : col('co', 'Commentary'),
+      scroll ? null : col('notes', 'Review notes'),
+      UI.el('p.dm-sub', { text: scroll
+        ? 'In the panel for the verse you select, with its commentary and review notes.'
+        : 'A hidden notes layer still shows its count beside each verse.' })
+    ]);
+    menu.hidden = !displayOpen;
+    return UI.el('div.dispwrap', [UI.el('div.segs', [btn]), menu]);
   }
 
   function editToggle() {
@@ -729,27 +829,8 @@
     const sec = lib.view(raw, heMode());
     return {
       id: raw.id, meta: meta, title: meta.en, sec: sec, raw: raw, editing: editing,
-      changes: lib.changes(raw), branch: changes || {}, base: TR.device.get('baseBranch'),
-      /* Where each verse's section ends, from the cantillated text. */
-      ends: sectionEnds(raw.he)
+      changes: lib.changes(raw), branch: changes || {}, base: TR.device.get('baseBranch')
     };
-  }
-
-  const ENDS = new WeakMap();
-  function sectionEnds(doc) {
-    if (!doc) return new Map();
-    if (!ENDS.has(doc)) {
-      const m = new Map();
-      doc.chapters.forEach(function (ch) {
-        ch.laws.forEach(function (l) {
-          const t = [l.text].concat(l.extra).join('\n').trim();
-          if (/\{פ\}$/.test(t)) m.set(ch.key + ':' + l.n, 'pe');
-          else if (/\{ס\}$/.test(t)) m.set(ch.key + ':' + l.n, 'samekh');
-        });
-      });
-      ENDS.set(doc, m);
-    }
-    return ENDS.get(doc);
   }
 
   /* The verses of chapter `c` from `v1` to `v2` (inclusive), every column's
@@ -803,16 +884,18 @@
   TR.bus.on('bookmarks', function () {
     if (!live) return;
     live.grid.querySelectorAll('.row.law').forEach(function (r) {
-      const b = r.querySelector('.rmargin > .bmk');
+      const b = r.querySelector('.bmk');
       if (b && r._ctx) paintBookmark(b, r._ctx.id, r.getAttribute('data-key'), r._ctx.title);
+    });
+    live.grid.querySelectorAll('.vs, .sc-n').forEach(function (el) {
+      el.classList.toggle('marked', TR.bookmarks.has(el.getAttribute('data-sec'), el.getAttribute('data-key')));
     });
   });
 
   function verseRow(ctx, r) {
     const href = verseHref(ctx, r.key);
     const boxes = { co: notesCell(ctx, 'co', r.key), notes: notesCell(ctx, 'notes', r.key) };
-    const end = ctx.ends.get(r.key);
-    const el = row('law' + (end ? '.' + end : ''), [], rowId(ctx, r.key));
+    const el = row('law', [], rowId(ctx, r.key));
     el._ctx = ctx;
     el.setAttribute('data-key', r.key);
     el.setAttribute('data-sec', ctx.id);
@@ -868,48 +951,297 @@
     }
   }
 
+  /* -------------------------------------------------------------- scroll */
+
+  /* The verse open in the scroll's panel, kept across repaints of the same
+     page: { page, sec, key }, or null. */
+  let chosen = null;
+
+  /* A passage's verses for scroll.js, in order:
+     [{ key, sec, id, ctx, c, n, chapterStart, text }] */
+  function scrollVerses(ctx, from, to) {
+    const out = [];
+    if (!ctx.sec.he) return out;
+    ctx.sec.he.chapters.forEach(function (ch) {
+      if (ch.n == null || ch.n < from.c || ch.n > to.c) return;
+      ch.laws.forEach(function (law, i) {
+        if ((ch.n === from.c && law.n < from.v) || (ch.n === to.c && law.n > to.v)) return;
+        const key = ch.n + ':' + law.n;
+        out.push({
+          key: key, sec: ctx.id, id: rowId(ctx, key), ctx: ctx, c: ch.n, n: law.n, chapterStart: i === 0 || !out.length,
+          text: [law.text].concat(law.extra).join('\n')
+        });
+      });
+    });
+    return out;
+  }
+
+  /* How many notes of `layer` each verse has: key → count, once per paint. */
+  function noteCounts(ctx, layer) {
+    if (!ctx.counts) ctx.counts = {};
+    if (!ctx.counts[layer]) {
+      const m = new Map();
+      const doc = ctx.sec[layer];
+      if (doc) doc.chapters.forEach(function (ch) {
+        ch.notes.forEach(function (n) { const k = F.noteKey(n); m.set(k, (m.get(k) || 0) + 1); });
+      });
+      ctx.counts[layer] = m;
+    }
+    return ctx.counts[layer];
+  }
+
+  /* Has `layer` a change on verse `key` in this list (the drafts' or the
+     branch's)? */
+  function touched(changes, layer, key) {
+    return (changes[layer] || []).some(function (c) { return c.kind === 'note' && c.key === key; });
+  }
+
+  const pick = function (v) { return '[data-sec="' + v.sec + '"][data-key="' + v.key + '"]'; };
+  const same = function (a, b) { return !!a && !!b && a.sec === b.sec && a.key === b.key; };
+
+  /* A piece of a verse's text, as scroll.js makes it. */
+  function scrollPiece(v, el) {
+    el._ctx = v.ctx;
+    if (findChange(v.ctx.branch, colLayer(v.ctx, 'he'), 'law', v.key)) el.classList.add('branched');
+    if (TR.bookmarks.has(v.sec, v.key)) el.classList.add('marked');
+    if (same(v, chosen)) el.classList.add('sel');
+  }
+
+  /* A verse's number in the margin, with a dot for each kind of note on it
+     (green when this device has changed them, blue when the branch has). */
+  function verseNumber(v) {
+    const ctx = v.ctx;
+    const bits = [UI.el('span', { text: TR.scroll.numeral(v) })];
+    const said = [];
+    ANN.forEach(function (layer) {
+      const n = noteCounts(ctx, layer).get(v.key) || 0;
+      const mine = touched(ctx.changes, layer, v.key), up = touched(ctx.branch, layer, v.key);
+      if (n || mine || up) bits.push(UI.el('i.sc-dot.' + layer + (mine ? '.changed' : up ? '.branched' : '')));
+      if (n) said.push(n + ' ' + (layer === 'co' ? (n === 1 ? 'comment' : 'comments') : (n === 1 ? 'review note' : 'review notes')));
+    });
+    const name = ctx.title + ' ' + v.key + (said.length ? ' · ' + said.join(', ') : '');
+    const b = UI.el('button.sc-n' + (v.chapterStart ? '.ch' : ''), {
+      type: 'button', 'data-sec': v.sec, 'data-key': v.key, title: name, 'aria-label': name,
+      onclick: function () { choose(same(v, chosen) ? null : v, true); }
+    }, bits);
+    if (TR.bookmarks.has(v.sec, v.key)) b.classList.add('marked');
+    if (same(v, chosen)) b.classList.add('sel');
+    return b;
+  }
+
+  function placeNumbers() {
+    if (!live || !live.scroll || !document.body.contains(live.grid)) return;
+    live.scroll.boxes.forEach(function (b) { TR.scroll.numbers(b.text, b.margin, b.verses, verseNumber); });
+  }
+
+  /* The panel beside the scroll: the chosen verse's translation and Targum
+     (as the Display menu has them), commentary and review notes. It is a
+     verse row like the interlinear ones, so editing in it, and keeping an
+     editor open across a repaint (holdRow), work the same. */
+  function versePanel() {
+    const s = live.scroll;
+    const v = chosen && s.byKey.get(chosen.sec + ' ' + chosen.key);
+    if (!v) {
+      return UI.el('aside.vpanel.empty', [
+        UI.el('p.vp-hint', { text: 'Select a verse, by its number in the margin or its text, to see its translation and its commentary here.' }),
+        s.general()
+      ]);
+    }
+    const ctx = v.ctx, key = v.key;
+    const r = verseRows(ctx, v.c, v.n, v.n)[0] || {};
+    const boxes = { co: notesCell(ctx, 'co', key), notes: notesCell(ctx, 'notes', key) };
+    const at = s.order.indexOf(v);
+    const step = function (d, icon, label) {
+      const to = s.order[at + d];
+      return UI.el('button.iconbtn.vp-step', {
+        type: 'button', disabled: !to, title: label, 'aria-label': label,
+        onclick: function () { if (to) choose(to, true); }
+      }, [icon()]);
+    };
+    const el = UI.el('aside.row.law.open.vpanel', { 'data-key': key, 'data-sec': ctx.id }, [
+      UI.el('div.vp-head', [
+        UI.el('a.vp-ref', { href: verseHref(ctx, key), title: 'This verse in its chapter' }, [
+          UI.el('strong', { text: ctx.title + ' ' + key }),
+          ctx.meta.he ? UI.el('span.vp-he', { lang: 'he', dir: 'rtl', text: ctx.meta.he + ' ' + F.numToHeb(v.c) + ',' + F.numToHeb(v.n) }) : null
+        ]),
+        UI.el('div.vp-tools', [
+          step(-1, TR.icons.up, 'Previous verse (k)'), step(1, TR.icons.down, 'Next verse (j)'),
+          bookmarkBtn(ctx, key),
+          UI.el('button.iconbtn.vp-close', {
+            type: 'button', title: 'Close (Esc)', 'aria-label': 'Close', onclick: function () { choose(null); }
+          }, [TR.icons.close()])
+        ])
+      ]),
+      UI.el('div.text', TEXT.filter(function (col) { return col !== 'he' && (col !== 'tg' || ctx.sec.tg); })
+        .map(function (col) { return unitCell(ctx, col, r[col], key, verseHref(ctx, key)); })),
+      UI.el('div.ann', [boxes.co, boxes.notes]),
+      boxes.co._count || boxes.notes._count || ctx.editing ? null
+        : UI.el('p.vp-none', { text: 'No commentary or review notes on this verse yet.' })
+    ]);
+    el.id = 'vp-' + rowId(ctx, key);
+    el._ctx = ctx;
+    return el;
+  }
+
+  /* Open verse `v` (or nothing) in the panel. `reveal` scrolls the text to
+     it if it is out of sight. */
+  function choose(v, reveal) {
+    if (!live || !live.scroll) return Promise.resolve();
+    return TR.editor.close().then(function () {
+      if (live && live.scroll) show(v, reveal);
+    });
+  }
+
+  /* The same, at once: for painting the page, which must leave an open
+     editor be (holdRow). */
+  function show(v, reveal) {
+    chosen = v ? { page: live.page, sec: v.sec, key: v.key } : null;
+    live.grid.querySelectorAll('.vs.sel, .sc-n.sel').forEach(function (el) { el.classList.remove('sel'); });
+    if (chosen) live.grid.querySelectorAll('.vs' + pick(chosen) + ', .sc-n' + pick(chosen)).forEach(function (el) { el.classList.add('sel'); });
+    const next = versePanel();
+    live.scroll.panel.replaceWith(next);
+    live.scroll.panel = next;
+    live.grid.classList.toggle('chosen', !!chosen);
+    if (reveal && v) {
+      /* Into view if it is under the headers, or under the panel where that
+         rises from the bottom. */
+      const first = document.getElementById(v.id);
+      const r = first && first.getBoundingClientRect();
+      const bottom = getComputedStyle(next).position === 'fixed' ? next.getBoundingClientRect().top : window.innerHeight;
+      if (r && (r.top < fixedTop() || r.bottom > bottom)) first.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  function fixedTop() {
+    const head = document.querySelector('.screen.on .rhead');
+    return document.querySelector('.topbar').offsetHeight + (head ? head.offsetHeight : 0);
+  }
+
+  /* The page's passages, set as a scroll: → { main, s }, `s` being what
+     live.scroll keeps. Commentary that belongs to no verse (a book's
+     introduction, a chapter's remarks) shows in the panel while no verse is
+     chosen. */
+  function scrollBody(page) {
+    const s = { order: [], byKey: new Map(), boxes: [], panel: null };
+    const general = [];
+    const main = UI.el('div.sc-main');
+    page.passages.forEach(function (p) {
+      if (p.title) main.appendChild(passageHead(p.title, p.sub));
+      if (p.opening) general.push(['Commentary on ' + p.ctx.title, function () { return coGeneral(p.ctx.sec.co); }]);
+      for (let c = p.from.c; c <= p.to.c; c++) {
+        if (c === p.from.c && p.from.v > 1) continue;
+        general.push(['Commentary on ' + p.ctx.title + ' ' + c, function () { return coChapter(p.ctx.sec.co, c); }]);
+      }
+      const verses = scrollVerses(p.ctx, p.from, p.to);
+      verses.forEach(function (v) { s.order.push(v); s.byKey.set(v.sec + ' ' + v.key, v); });
+      const text = TR.scroll.build(verses, scrollPiece);
+      const margin = UI.el('div.sc-nums');
+      main.appendChild(UI.el('div.scroll', [text, margin]));
+      s.boxes.push({ text: text, margin: margin, verses: verses });
+    });
+    s.general = function () {
+      return general.map(function (g) {
+        const blocks = g[1]();
+        return blocks.length ? cell('co', [UI.el('div.annhead', { text: g[0] })].concat(blocks)) : null;
+      });
+    };
+    return { main: main, s: s };
+  }
+
+  /* Hovering a verse lights all its pieces and its number together. */
+  function hoverVerses(grid) {
+    let on = null;
+    const set = function (t) {
+      const k = t ? { sec: t.getAttribute('data-sec'), key: t.getAttribute('data-key') } : null;
+      if (same(k, on) || (!k && !on)) return;
+      grid.querySelectorAll('.hover').forEach(function (el) { el.classList.remove('hover'); });
+      on = k;
+      if (k) grid.querySelectorAll('.vs' + pick(k) + ', .sc-n' + pick(k)).forEach(function (el) { el.classList.add('hover'); });
+    };
+    grid.addEventListener('mouseover', function (e) { set(e.target.closest('.vs, .sc-n')); });
+    grid.addEventListener('mouseleave', function () { set(null); });
+  }
+
   /* -------------------------------------------------------------- render */
 
   /* page: { key, crumbs, docTitle, head (pager element), foot, targum,
              passages: [{ ctx, from, to, title?, sub?, opening? }], target } */
   function render(host, page, up) {
     const editing = !!TR.device.get('editing');
-    const grid = UI.el('div.grid' + (editing ? '.editing' : '') + (page.targum ? '.has-tg' : '') + '.mode-' + heMode());
+    const scroll = layout() === 'scroll';
+    const grid = UI.el('div.grid' + (editing ? '.editing' : '') + (page.targum ? '.has-tg' : '') + '.mode-' + heMode() +
+      (scroll ? '.scrollmode' : ''));
     const held = holdRow(host, page.key);
     const ctxs = [];
     page.passages.forEach(function (p) { if (ctxs.indexOf(p.ctx) < 0) ctxs.push(p.ctx); });
+    if (live && live.ro) live.ro.disconnect();
 
     const head = UI.el('header.rhead', [
-      UI.el('div.rbar', [page.head,
-        UI.el('div.toggles', viewGroups(grid, page).concat([UI.el('div.segs', [editToggle(), marksToggle()])]))])
+      UI.el('div.rbar', [page.head, UI.el('div.toggles', [
+        layoutToggle(), displayMenu(grid, page), UI.el('div.segs', [editToggle(), marksToggle()])
+      ])])
     ]);
     const notes = UI.el('div.rnotes', [TR.session.active() ? TR.session.line() : null, branchNote(ctxs, up), draftNote(ctxs, editing)]);
     if (page.tabs) notes.insertBefore(page.tabs, notes.firstChild);
 
-    page.passages.forEach(function (p) {
-      if (p.title) grid.appendChild(passageHead(p.title, p.sub));
-      if (p.opening) UI.append(grid, generalRow(coGeneral(p.ctx.sec.co), 'Commentary on ' + p.ctx.title));
-      passageRows(p.ctx, p.from, p.to, grid);
-    });
+    let sc = null;
+    if (scroll) {
+      sc = scrollBody(page);
+      /* The panel keeps its verse across repaints of the page; a verse
+         linked to opens in it. */
+      const target = page.target && sc.s.order.find(function (v) { return v.id === page.target.id; });
+      if (target) chosen = { page: page.key, sec: target.sec, key: target.key };
+      else if (!chosen || chosen.page !== page.key || !sc.s.byKey.has(chosen.sec + ' ' + chosen.key)) chosen = null;
+      sc.s.panel = UI.el('aside.vpanel');
+      UI.append(grid, [sc.main, sc.s.panel]);
+      hoverVerses(grid);
+    } else {
+      page.passages.forEach(function (p) {
+        if (p.title) grid.appendChild(passageHead(p.title, p.sub));
+        if (p.opening) UI.append(grid, generalRow(coGeneral(p.ctx.sec.co), 'Commentary on ' + p.ctx.title));
+        passageRows(p.ctx, p.from, p.to, grid);
+      });
+    }
     applyCols(grid);
 
     grid.addEventListener('click', function (e) {
-      if (!editing) return;
       const s = window.getSelection();
       if (s && !s.isCollapsed) return;   // selecting, not clicking
       if (e.target.closest('a, button, .editor')) return;
+      const vs = scroll && e.target.closest('.vs');
+      if (vs) {
+        const v = live.scroll.byKey.get(vs.getAttribute('data-sec') + ' ' + vs.getAttribute('data-key'));
+        choose(same(v, chosen) ? null : v, true);
+        return;
+      }
+      if (!editing) return;
       const t = e.target.closest('.note.editable');
       if (t && t._edit) t._edit();
     });
 
     nav = page.nav;
-    live = { grid: grid, page: page.key };
+    live = { grid: grid, page: page.key, scroll: sc && sc.s, ro: null };
+    if (scroll) show(chosen && sc.s.byKey.get(chosen.sec + ' ' + chosen.key), false);
     hideSel();
     UI.crumbs(page.crumbs);
     UI.fill(host, [head, notes, grid, UI.el('footer.rfoot', [page.foot])]);
-    if (held) putBack(grid, held);
+    if (held) {
+      putBack(grid, held);
+      if (scroll) live.scroll.panel = grid.querySelector('.vpanel');
+    }
     fitHead(head);
     document.title = page.docTitle + ' — Tanakh Reader';
+
+    /* The numbers margin follows the text wherever it reflows: a resize, the
+       fonts arriving, the panel opening. */
+    if (scroll) {
+      placeNumbers();
+      if (window.ResizeObserver) {
+        live.ro = new ResizeObserver(function () { requestAnimationFrame(placeNumbers); });
+        sc.s.boxes.forEach(function (b) { live.ro.observe(b.text); });
+      }
+      if (document.fonts) document.fonts.ready.then(placeNumbers);
+    }
 
     /* A new chapter or portion starts at its top; a repaint of the same one
        (a column toggled, a note saved) stays where it was. */
@@ -920,8 +1252,11 @@
     if (page.target) {
       const target = document.getElementById(page.target.id);
       if (target) {
-        target.classList.add('target');
-        if (page.target.q && TR.search) TR.search.highlight(target, page.target.q, page.target.whole);
+        const all = scroll ? Array.from(grid.querySelectorAll('.vs' + pick(chosen))) : [target];
+        all.forEach(function (el) {
+          el.classList.add('target');
+          if (page.target.q && TR.search) TR.search.highlight(el, page.target.q, page.target.whole);
+        });
         target.scrollIntoView({ block: 'center' });
       }
     }
@@ -941,9 +1276,8 @@
   TR.reader = {
     here: function () {
       if (!onReader() || !live || !document.body.contains(live.grid)) return null;
-      const head = live.grid.parentNode.querySelector('.rhead');
-      const top = document.querySelector('.topbar').offsetHeight + (head ? head.offsetHeight : 0);
-      const rows = Array.from(live.grid.querySelectorAll('.row.law'));
+      const top = fixedTop();
+      const rows = Array.from(live.grid.querySelectorAll(live.scroll ? '.vs.first' : '.row.law'));
       const r = rows.find(function (el) { return el.getBoundingClientRect().bottom > top + 24; }) || rows[0];
       return r ? { sec: r._ctx.id, key: r.getAttribute('data-key'), title: r._ctx.title } : null;
     },
@@ -1129,11 +1463,20 @@
   });
 
   /* ← and → turn chapters or portions, when the reader is open and nothing
-     is being typed. */
+     is being typed. In the scroll, j and k move the panel to the next and
+     previous verse, and Esc closes it. */
   document.addEventListener('keydown', function (e) {
     if (!onReader() || !nav || e.altKey || e.ctrlKey || e.metaKey) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (live && live.scroll && (e.key === 'j' || e.key === 'k')) {
+      const s = live.scroll;
+      const at = chosen ? s.order.indexOf(s.byKey.get(chosen.sec + ' ' + chosen.key)) : -1;
+      const to = at < 0 ? s.order[0] : s.order[at + (e.key === 'j' ? 1 : -1)];
+      if (to) choose(to, true);
+      return;
+    }
+    if (live && live.scroll && e.key === 'Escape' && chosen && !e.defaultPrevented && !TR.editor.active()) { choose(null); return; }
     const href = e.key === 'ArrowLeft' ? nav.prev : e.key === 'ArrowRight' ? nav.next : null;
     if (href) { e.preventDefault(); location.hash = href; }
   });

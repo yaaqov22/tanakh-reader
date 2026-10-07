@@ -8,8 +8,8 @@
 
    Only inline rendering is needed. The block structure — titles, chapters,
    verses, paragraphs — is already known from format.js, so each paragraph
-   arrives here on its own. A single newline inside a paragraph is a line
-   break (the lines of a poem, the Song of the Sea). */
+   arrives here on its own. A single newline inside a note's paragraph is a
+   line break. */
 
 (function (TR) {
   'use strict';
@@ -26,7 +26,8 @@
 
   /* The marks inside a verse of the texts (format.js): Mechon Mamre's
      section marks, large, small and suspended letters, the read form (qere)
-     in parentheses, and the wide gap between a poem's half-verses. */
+     in parentheses, and the wide gap between a poem's half-verses (which
+     both views keep: it is how the poetry books are set, not a mark). */
   const VERSE = new RegExp([
     '\\{([\u05E4\u05E1\u05E8\u05E9PSN])\\}', // 1  {פ} {ס} {ר} {ש}, en {P} {S} {N}
     '<(big|small|sup)>([^<]*)</\\2>',     // 2,3  <big>בְּ</big>
@@ -34,14 +35,17 @@
     ' {4}'                                  //    the gap between half-verses
   ].join('|'));
 
+  /* What each section mark means, for its tooltip (Mechon Mamre's about
+     page: open section, closed section, the end of a line in certain songs,
+     a blank line). */
   const MARKS = {
-    'פ': ['pe', 'פ', 'Open section (petuchah)'],
-    'ס': ['samekh', 'ס', 'Closed section (setumah)'],
-    'ר': ['line', '', ''],
-    'ש': ['song', '', ''],
-    'P': ['en-p', '', ''],
-    'S': ['en-s', '', ''],
-    'N': ['line', '', '']
+    'פ': 'Open section (petuchah): what follows starts on a new line',
+    'ס': 'Closed section (setumah): a gap within the line; in a song, the gap between its parts',
+    'ר': 'End of a line, in a song or list written in its own layout',
+    'ש': 'A blank line',
+    'P': 'Open section (petuchah)',
+    'S': 'Closed section (setumah)',
+    'N': 'End of a line, in a song or list written in its own layout'
   };
 
   function span(cls, text, title, parent) {
@@ -53,20 +57,20 @@
     return s;
   }
 
-  /* One verse's text into `parent`. Hebrew only: (…) is the read form.
-     In a song laid out as in the scroll (its lines end {ר}), a {ס} is the
-     space between its bricks, not a section. */
+  /* One verse's text into `parent`, as the interlinear view shows it: the
+     section marks as they stand, braces and all, and nothing laid out by
+     them. A line break inside a verse (a song's or a list's line) is a
+     space. Laying the text out by its marks is the scroll view's business
+     (scroll.js), which splits them out before its pieces reach here.
+     Hebrew only: (…) is the read form. */
   function verse(text, parent, lang) {
-    let rest = String(text || '');
-    const song = rest.indexOf('{ר}') >= 0;
+    let rest = String(text || '').replace(/[ \t]*\n[ \t]*/g, ' ');
     for (;;) {
       const m = VERSE.exec(rest);
       if (!m) break;
       if (m.index > 0) breaks(rest.slice(0, m.index), parent);
       if (m[1] !== undefined) {
-        const k = MARKS[m[1]];
-        if (song && m[1] === 'ס') span('gap', null, null, parent);
-        else span('mark ' + k[0], k[1], k[2], parent);
+        span('mark', m[0], MARKS[m[1]], parent);
       } else if (m[2] !== undefined) {
         span('ltr-' + m[2], m[3], m[2] === 'big' ? 'Large letter' : m[2] === 'small' ? 'Small letter' : 'Suspended letter', parent);
       } else if (m[4] !== undefined) {

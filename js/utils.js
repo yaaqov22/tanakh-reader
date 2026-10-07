@@ -56,6 +56,7 @@
     cols: { he: true, tg: false, en: true, co: false, notes: false },
     marks: true,    // mark what the branch changed compared with baseBranch
     heMode: 'teamim',   // how the Hebrew shows: plain, pointed, punct (Mechon Mamre's punctuation) or teamim
+    layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse) or 'scroll' (the Hebrew set as in a scroll)
     editing: false,
     name: '',       // signs review notes; filled from the token's login when checked
     login: '',      // the token's GitHub login, once known: names the submit branch

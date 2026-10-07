@@ -71,6 +71,19 @@
     bookmark: function () {
       return svg('<path d="M6.5 3.5h11v17l-5.5-4.5-5.5 4.5z"/>');
     },
+    /* The reader's layouts: interlinear rows of two columns, and a scroll's
+       column between its rollers. */
+    lines: function () {
+      return svg('<path d="M4 6h6.5M13.5 6H20M4 10h5M13.5 10H18M4 15h6.5M13.5 15H20M4 19h4.5M13.5 19H17"/>');
+    },
+    scroll: function () {
+      return svg('<path d="M4.5 3.5v17M19.5 3.5v17"/><path d="M8 7h8M8 10.5h8M8 14h5M8 17.5h8"/>');
+    },
+    chevron: function () { return svg('<path d="m7 10 5 5 5-5"/>'); },
+    check: function () { return svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'); },
+    close: function () { return svg('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'); },
+    up: function () { return svg('<path d="m6 14.5 6-6 6 6"/>'); },
+    down: function () { return svg('<path d="m6 9.5 6 6 6-6"/>'); },
     prev: function () { return svg('<path d="m14.5 6-6 6 6 6"/>'); },
     next: function () { return svg('<path d="m9.5 6 6 6-6 6"/>'); }
   };
