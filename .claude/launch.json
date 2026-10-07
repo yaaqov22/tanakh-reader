@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tanakh-reader",
+      "runtimeExecutable": "C:/php/php.exe",
+      "runtimeArgs": ["-S", "127.0.0.1:8152", "-t", ".."],
+      "port": 8152,
+      "url": "http://127.0.0.1:8152"
+    }
+  ]
+}

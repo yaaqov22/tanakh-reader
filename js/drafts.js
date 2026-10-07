@@ -1,0 +1,128 @@
+/* Local drafts: the edited text of a file, kept on this device until it is
+   submitted (M3) or discarded.
+
+   ONE RECORD PER FILE PER SOURCE, keyed "<source key>\n<path>":
+
+     { key, src, path, id, layer,
+       base,      the file's text when editing began (null: it didn't exist)
+       baseSha,   its blob SHA on GitHub (null for the local folder)
+       text,      the edited file, always canonical (edit.js checks)
+       updated }  ms timestamp
+
+   The whole file is stored, not a patch: it is what gets committed, and with
+   `base` beside it a per-law three-way merge (M3) has everything it needs.
+   The base is fixed at the first edit, so if the branch moves on meanwhile
+   the draft still records what it was an edit of; library.js compares it with
+   the current text and calls the draft stale.
+
+   A source key is the branch (owner/repo@branch) or the local folder, so a
+   draft made against one branch never appears while reading another.
+
+   Everything is held in memory once loaded, and every change is written
+   through to IndexedDB at once — the editor already waits for a pause in the
+   typing before it saves. */
+
+(function (TR) {
+  'use strict';
+
+  const all = new Map();   // key → record
+  let readyP = null;
+
+  const keyFor = function (src, path) { return src + '\n' + path; };
+
+  function load() {
+    if (!readyP) {
+      readyP = TR.store.all('drafts').then(function (recs) {
+        recs.forEach(function (r) { if (r && r.key) all.set(r.key, r); });
+        return TR.store.ok();
+      }).then(function (ok) {
+        if (!ok) console.warn('[drafts] no database: edits last only until the page is closed');
+      });
+    }
+    return readyP;
+  }
+
+  function mine() {
+    const src = TR.source.key();
+    return Array.from(all.values()).filter(function (r) { return r.src === src; });
+  }
+
+  TR.drafts = {
+    ready: load,
+
+    /* This source's draft of `path`, or null. Only after ready(). */
+    get: function (path) { return all.get(keyFor(TR.source.key(), path)) || null; },
+
+    /* This source's drafts, in path order. */
+    list: function () {
+      return mine().sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; });
+    },
+
+    count: function () { return mine().length; },
+
+    /* Drafts made against other branches or folders, by source key. */
+    elsewhere: function () {
+      const src = TR.source.key();
+      const out = {};
+      all.forEach(function (r) { if (r.src !== src) out[r.src] = (out[r.src] || 0) + 1; });
+      return out;
+    },
+
+    /* Record `text` as the draft of `path`. `base`/`baseSha` are only used
+       for a new draft. Returning to the base text removes the draft. */
+    put: function (path, info) {
+      const src = TR.source.key();
+      const key = keyFor(src, path);
+      const was = all.get(key);
+      const base = was ? was.base : info.base;
+      if (info.text === base) return TR.drafts.remove(path);
+      const rec = {
+        key: key, src: src, path: path, id: info.id, layer: info.layer,
+        base: base, baseSha: was ? was.baseSha : (info.baseSha || null),
+        text: info.text, updated: Date.now()
+      };
+      all.set(key, rec);
+      TR.bus.emit('drafts', { path: path });
+      return TR.store.put('drafts', key, rec);
+    },
+
+    /* Move this source's draft of `path` onto a newer text of the file
+       (merge.js rebase()): `to` is { base, baseSha, text }. */
+    rebase: function (path, to) {
+      const key = keyFor(TR.source.key(), path);
+      const was = all.get(key);
+      if (!was) return Promise.resolve();
+      const rec = Object.assign({}, was, { base: to.base, baseSha: to.baseSha, text: to.text });
+      all.set(key, rec);
+      TR.bus.emit('drafts', { path: path });
+      return TR.store.put('drafts', key, rec);
+    },
+
+    /* Move the drafts made against source `from` to source `to` — when the
+       branch they were made on has been merged into `to` and deleted. The
+       base each records is still what it was an edit of, so they merge on
+       submitting as well from there. A file `to` already has a draft of
+       stays where it was. → how many moved. */
+    move: function (from, to) {
+      const writes = [];
+      Array.from(all.values()).forEach(function (r) {
+        if (r.src !== from || all.has(keyFor(to, r.path))) return;
+        const rec = Object.assign({}, r, { key: keyFor(to, r.path), src: to });
+        all.delete(r.key);
+        all.set(rec.key, rec);
+        writes.push(TR.store.del('drafts', r.key), TR.store.put('drafts', rec.key, rec));
+      });
+      if (writes.length) TR.bus.emit('drafts', {});
+      return Promise.all(writes).then(function () { return writes.length / 2; });
+    },
+
+    remove: function (path) {
+      const key = keyFor(TR.source.key(), path);
+      if (!all.has(key)) return Promise.resolve();
+      all.delete(key);
+      TR.bus.emit('drafts', { path: path });
+      return TR.store.del('drafts', key);
+    }
+  };
+
+})(window.TR);

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf8f4">
+<meta name="description" content="Tanakh: Hebrew, Targum, translation and commentary side by side.">
+<title>Tanakh Reader</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <nav id="crumbs" class="crumbs" aria-label="Where you are"><a class="crumb" href="#/books">Tanakh</a></nav>
+  <a id="search-btn" class="iconbtn" href="#/search" aria-label="Search" title="Search (/)"></a>
+  <a id="home-btn" class="iconbtn" href="#/books" aria-label="Books" title="Books"></a>
+  <!-- Bookmarks: the places marked in the text, and marking the one at the
+       top of the screen. Filled in by main.js each time it opens. -->
+  <div class="menuwrap">
+    <button type="button" id="bm-btn" class="iconbtn" aria-haspopup="menu" aria-expanded="false" aria-controls="bm-menu" aria-label="Bookmarks" title="Bookmarks"></button>
+    <div id="bm-menu" class="menu bmmenu" role="menu" aria-label="Bookmarks" hidden></div>
+  </div>
+  <!-- GitHub: which branch is being read, what this device has changed, and
+       reloading the texts. The button carries the count of changed files,
+       and a blue ring when the branch isn't the base, so that reading the
+       wrong branch still shows at a glance. -->
+  <div class="menuwrap">
+    <button type="button" id="gh-btn" class="iconbtn" aria-haspopup="menu" aria-expanded="false" aria-controls="gh-menu" aria-label="GitHub"><span class="badge" hidden></span></button>
+    <div id="gh-menu" class="menu" role="menu" aria-label="GitHub" hidden>
+      <a id="menu-branch" role="menuitem" href="#/branches"></a>
+      <a id="menu-changes" role="menuitem" href="#/changes"></a>
+      <button type="button" id="menu-reload" role="menuitem"></button>
+    </div>
+  </div>
+  <button type="button" id="settings-btn" class="iconbtn" aria-label="Settings" title="Settings"></button>
+</header>
+
+<main id="main">
+  <!-- Every screen exists from the start; the router only toggles .on -->
+  <section id="screen-books" class="screen"></section>
+  <section id="screen-parashot" class="screen"></section>
+  <section id="screen-read" class="screen"></section>
+  <section id="screen-portion" class="screen"></section>
+  <section id="screen-search" class="screen"></section>
+  <section id="screen-changes" class="screen"></section>
+  <section id="screen-branches" class="screen"></section>
+  <section id="screen-settings" class="screen"></section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Plain script tags in dependency order, no modules and no build step.
+     The list must match SHELL in sw.js. -->
+<script src="js/utils.js"></script>
+<script src="js/format.js"></script>
+<script src="js/edit.js"></script>
+<script src="js/merge.js"></script>
+<script src="js/submit.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/store.js"></script>
+<script src="js/github.js"></script>
+<script src="js/source.js"></script>
+<script src="js/drafts.js"></script>
+<script src="js/library.js"></script>
+<script src="js/bookmarks.js"></script>
+<script src="js/review.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/session.js"></script>
+<script src="js/books.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/search.js"></script>
+<script src="js/changes.js"></script>
+<script src="js/branches.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
