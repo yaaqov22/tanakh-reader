@@ -28,6 +28,7 @@
   --del: #f6dcd6;
   --up: #2f6a9a;
   --up-soft: #e1ecf5;
+  --mt: #5e5a8c;          /* MT links */
 
   --radius: 12px;
   --radius-sm: 8px;
@@ -60,6 +61,7 @@
     --del: #4a2621;
     --up: #7fb0dc;
     --up-soft: #1f2d3a;
+    --mt: #a9a3d8;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
   }
 }
@@ -82,6 +84,7 @@
   --del: #4a2621;
   --up: #7fb0dc;
   --up-soft: #1f2d3a;
+  --mt: #a9a3d8;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
@@ -495,7 +498,8 @@ a.crumb:hover { color: var(--accent); }
 .grid:not(.show-en) .cell.en,
 .grid:not(.show-co) .row:not(.open) .cell.co,
 .grid:not(.show-notes) .row:not(.open) .cell.notes,
-.cell.co.none, .cell.notes.none { display: none; }
+.grid:not(.show-mt) .row:not(.open) .cell.mt,
+.cell.co.none, .cell.notes.none, .cell.mt.none { display: none; }
 
 .row.law { scroll-margin-top: calc(var(--topbar-h) + var(--rhead-h, 90px) + 12px); }
 .row.law.target { background: var(--target); border-radius: var(--radius-sm); }
@@ -549,11 +553,12 @@ a.crumb:hover { color: var(--accent); }
 .grid.show-co .row.general .annmark { display: none; }
 .row.general .cell.co p { max-width: 760px; }
 
-/* Beneath the text: commentary, then review notes, each in columns. */
+/* Beneath the text: commentary, review notes, then MT links, each in columns. */
 .ann .cell { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .row.general .ann .cell { margin-top: 4px; }
 .annhead { margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
 .cell.notes .annhead { color: var(--accent); }
+.cell.mt .annhead { color: var(--mt); }
 .notelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px 28px; align-items: start; }
 .notelist div.note { margin: 0; }
 
@@ -575,6 +580,7 @@ a.crumb:hover { color: var(--accent); }
 .annmark > span { display: inline-flex; align-items: center; gap: 4px; }
 .annmark svg { width: 15px; height: 15px; }
 .annmark .mk-notes { color: var(--accent); }
+.annmark .mk-mt { color: var(--mt); }
 .annmark .changed { color: var(--edit); }
 .annmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
@@ -584,7 +590,7 @@ a.crumb:hover { color: var(--accent); }
 .cell.en { font-family: var(--font); font-size: 17px; line-height: 1.6; }
 .cell.he, .cell.tg { font-family: var(--font-he); font-size: 21px; line-height: 1.65; text-align: justify; }
 .cell.tg { font-size: 19px; color: var(--text); }
-.cell.co, .cell.notes { font-size: 14.5px; line-height: 1.55; color: var(--dim); }
+.cell.co, .cell.notes, .cell.mt { font-size: 14.5px; line-height: 1.55; color: var(--dim); }
 .cell.empty .missing { color: var(--faint); font-style: italic; font-size: 14px; font-family: var(--font-ui); }
 
 .label {
@@ -745,6 +751,7 @@ a.crumb:hover { color: var(--accent); }
 .sc-n:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .sc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
 .sc-dot.notes { background: var(--accent); }
+.sc-dot.mt { background: var(--mt); }
 .sc-dot.changed { background: var(--edit); }
 .sc-dot.branched { background: var(--up); }
 
@@ -865,6 +872,8 @@ a.crumb:hover { color: var(--accent); }
 div.note { margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--line); }
 div.note:last-child { margin-bottom: 0; }
 div.note.review { border-left-color: var(--accent); }
+div.note.mt { border-left-color: var(--mt); }
+div.note.mt a { color: var(--mt); }
 div.note p { margin: 0 0 0.5em; }
 .note-range { font-size: 12px; color: var(--faint); }
 .co-head { font-size: 15px; margin: 0 0 6px; color: var(--text); }
@@ -1138,7 +1147,7 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
 .hit-text { margin: 4px 0 0; line-height: 1.55; }
 .hit-text.en { font-family: var(--font); font-size: 15.5px; }
 .hit-text.he { font-family: var(--font-he); font-size: 18.5px; }
-.hit-text.co { font-size: 14px; color: var(--dim); }
+.hit-text.co, .hit-text.mt { font-size: 14px; color: var(--dim); }
 .hit-layer {
   display: inline-block;
   margin-inline-end: 8px;

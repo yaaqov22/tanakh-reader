@@ -26,7 +26,7 @@
   let seq = 0;
   let lists = null;   // Promise<{ pulls, branches }>, this session
 
-  const LAYER_NAME = { he: 'Hebrew', tp: 'Punctuated Hebrew', onq: 'Targum', onqk: 'Unpointed Targum', en: 'English', co: 'Commentary', notes: 'Review notes' };
+  const LAYER_NAME = { he: 'Hebrew', tp: 'Punctuated Hebrew', onq: 'Targum', onqk: 'Unpointed Targum', en: 'English', co: 'Commentary', notes: 'Review notes', mt: 'MT links' };
 
   function card(title, children) {
     return UI.el('section.card', [UI.el('h2', { text: title })].concat(children));

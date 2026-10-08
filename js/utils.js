@@ -53,7 +53,7 @@
     token: '',
     localBase: '../tanakh/',
     theme: 'system',
-    cols: { he: true, tg: false, en: true, co: false, notes: false },
+    cols: { he: true, tg: false, en: true, co: false, notes: false, mt: false },
     marks: true,    // mark what the branch changed compared with baseBranch
     heMode: 'teamim',   // how the Hebrew shows: plain, pointed, punct (Mechon Mamre's punctuation) or teamim
     layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse), 'parallel' (the Hebrew and one text, each set as in a scroll, side by side) or 'scroll' (the Hebrew alone, set as in a scroll)

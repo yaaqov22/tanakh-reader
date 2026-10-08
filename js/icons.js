@@ -56,6 +56,10 @@
     note: function () {
       return svg('<path d="M5 4.5h14v9.5l-5 5.5H5z"/><path d="M14 19.5V14h5"/><path d="M8.5 8.5h7M8.5 11.5h4"/>');
     },
+    /* MT links: a chain's two links. */
+    link: function () {
+      return svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>');
+    },
     branch: function () {
       return svg('<circle cx="7" cy="5.5" r="2"/><circle cx="7" cy="18.5" r="2"/><circle cx="17" cy="8" r="2"/>' +
                  '<path d="M7 7.5v9M17 10c0 4-10 2.5-10 6.5"/>');

@@ -1,9 +1,13 @@
 /* Search across the whole Tanakh: Hebrew, Targum, English, commentary and
-   review notes.
+   review notes, and, when asked for, the MT links.
 
-   #/search/<query>              everything
+   #/search/<query>              everything but the MT links
    #/search/<query>/<opts>       opts: layers and books, e.g. "he.en~torah",
-                                 "co~01~w" (Genesis, whole words)
+                                 "co~01~w" (Genesis, whole words),
+                                 "he.tg.en.co.mt~all" (the MT links too)
+
+   THE MT LINKS are off unless chosen: each one quotes a whole halakhah, so a
+   word would otherwise match every verse a halakhah using it cites.
 
    THE CORPUS. The first search loads every book (through TR.lib, so from
    the offline cache when it can) and flattens it into entries — one per
@@ -133,7 +137,7 @@
       });
     });
 
-    ['co', 'notes'].forEach(function (layer) {
+    ['co', 'notes', 'mt'].forEach(function (layer) {
       const doc = sec[layer];
       if (!doc) return;
       add(out, meta, layer, 'intro', secHref, 'General remarks', [doc.title].concat(doc.front, doc.intro));
@@ -231,7 +235,7 @@
     const ts = terms(q);
     if (!ts.length) return { terms: ts, places: [] };
     const want = opts.layers;
-    const groupOf = { he: 'he', onq: 'tg', en: 'en', co: 'co', notes: 'co' };
+    const groupOf = { he: 'he', onq: 'tg', en: 'en', co: 'co', notes: 'co', mt: 'mt' };
     const places = [];
     const byKey = new Map();
     for (const e of c.entries) {
@@ -347,17 +351,20 @@
   /* ------------------------------------------------------------- options */
 
   /* Options live in the hash so a search can be linked and survives reload:
-     "he.tg.en.co~all" = layers ~ books [~ w for whole words]. */
+     "he.tg.en.co~all" = layers ~ books [~ w for whole words]. With no
+     layers chosen, all but the MT links. */
+  const GROUPS = ['he', 'tg', 'en', 'co', 'mt'];
+
   function parseOpts(s) {
     const parts = String(s || '').split('~');
-    const layers = { he: false, tg: false, en: false, co: false };
+    const layers = { he: false, tg: false, en: false, co: false, mt: false };
     (parts[0] || 'he.tg.en.co').split('.').forEach(function (k) { if (k in layers) layers[k] = true; });
-    if (!layers.he && !layers.tg && !layers.en && !layers.co) layers.he = layers.tg = layers.en = layers.co = true;
+    if (!GROUPS.some(function (k) { return layers[k]; })) layers.he = layers.tg = layers.en = layers.co = true;
     return { layers: layers, book: parts[1] || 'all', whole: parts[2] === 'w' };
   }
 
   function optsString(o) {
-    return ['he', 'tg', 'en', 'co'].filter(function (k) { return o.layers[k]; }).join('.') +
+    return GROUPS.filter(function (k) { return o.layers[k]; }).join('.') +
       '~' + o.book + (o.whole ? '~w' : '');
   }
 
@@ -370,7 +377,7 @@
   /* -------------------------------------------------------------- screen */
 
   const PAGE = 100;
-  const LAYER_LABEL = { he: 'Hebrew', tg: 'Targum', en: 'English', co: 'Commentary' };
+  const LAYER_LABEL = { he: 'Hebrew', tg: 'Targum', en: 'English', co: 'Commentary', mt: 'MT links' };
   let seq = 0;
 
   function resultEl(p, ix, ts, opts, q) {
@@ -384,10 +391,10 @@
         UI.el('span.hit-ref', { text: p.label }),
         UI.el('span.hit-he', { lang: 'he', dir: 'rtl', text: (meta && meta.he) || '' })
       ]),
-      ['he', 'tg', 'en', 'co'].filter(function (g) { return p.hits[g]; }).map(function (g) {
+      GROUPS.filter(function (g) { return p.hits[g]; }).map(function (g) {
         const e = p.hits[g];
         return UI.el('div.hit-text.' + g + (g === 'tg' ? '.he' : ''), g === 'he' || g === 'tg' ? { lang: 'he', dir: 'rtl' } : null, [
-          UI.el('span.hit-layer', { text: e.layer === 'notes' ? 'Note' : LAYER_LABEL[g] }),
+          UI.el('span.hit-layer', { text: e.layer === 'notes' ? 'Note' : e.layer === 'mt' ? 'MT link' : LAYER_LABEL[g] }),
           snippet(e.plain, ts, opts.whole)
         ]);
       })
@@ -445,9 +452,10 @@
   }
 
   function paintOpts(opts) {
-    const layerChips = ['he', 'tg', 'en', 'co'].map(function (k) {
+    const layerChips = GROUPS.map(function (k) {
       return UI.el('button.chip', { type: 'button', 'aria-pressed': opts.layers[k] ? 'true' : 'false',
-        text: LAYER_LABEL[k], onclick: function () { const l = {}; l[k] = !opts.layers[k]; go({ layers: l }); } });
+        text: LAYER_LABEL[k], title: k === 'mt' ? 'Also search the MT links: the halakhot of the Mishneh Torah that quote each verse' : null,
+        onclick: function () { const l = {}; l[k] = !opts.layers[k]; go({ layers: l }); } });
     });
     const whole = UI.el('button.chip', { type: 'button', 'aria-pressed': opts.whole ? 'true' : 'false',
       text: 'Whole words', title: 'Match whole words only (then a Hebrew word with a prefix such as ו, ה or ב stops matching)',

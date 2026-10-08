@@ -88,9 +88,20 @@
   let live = null;  // { grid, page }: what is on screen, for the selection toolbar
 
   const LAYER_NAME = { he: 'Hebrew', tp: 'punctuated Hebrew', onq: 'Targum', onqk: 'Targum', en: 'English',
-    co: 'commentary', notes: 'review notes' };
-  const ANN = ['co', 'notes'];
-  const ANN_TITLE = { co: 'Commentary', notes: 'Review notes' };
+    co: 'commentary', notes: 'review notes', mt: 'MT links' };
+  /* The notes layers under each verse. The MT links (the halakhot of the
+     Mishneh Torah that quote the verse, tools/mt-links.mjs) show and hide as
+     the others do, but are generated, and never edited here. */
+  const ANN = ['co', 'notes', 'mt'];
+  const ANN_TITLE = { co: 'Commentary', notes: 'Review notes', mt: 'MT links' };
+  const ANN_ICON = { co: 'comment', notes: 'note', mt: 'link' };
+  const editable = function (layer) { return layer !== 'mt'; };
+
+  /* "3 comments", "1 MT link". */
+  function countText(layer, n) {
+    const one = { co: 'comment', notes: 'review note', mt: 'MT link' }[layer];
+    return n + ' ' + (n === 1 ? one : one + 's');
+  }
   const TEXT = ['he', 'tg', 'en'];      // the text columns, in order
   const COL_LANG = { he: 'he', tg: 'he', en: 'en' };
 
@@ -178,7 +189,7 @@
     ];
   }
 
-  const kindOf = function (layer) { return layer === 'notes' ? 'review' : 'co'; };
+  const kindOf = function (layer) { return layer === 'notes' ? 'review' : layer; };
 
   function noteEl(ctx, n, layer) {
     const change = findChange(ctx.changes, layer, 'note', n.label);
@@ -187,7 +198,7 @@
     if (upstream) el.appendChild(branchBar(ctx, upstream, el));
     if (change) el.appendChild(changeBar(ctx, layer, change, el));
     flash(el, ctx.id, layer, 'note', n.label);
-    if (ctx.editing) {
+    if (ctx.editing && editable(layer)) {
       el.classList.add('editable');
       el._edit = function () {
         lib.section(ctx.id).then(function (sec) {
@@ -225,8 +236,8 @@
     return el;
   }
 
-  /* The commentary or review notes on verse `key`, as a block under the
-     text: a heading, then the notes in columns. `box._count` is how many
+  /* The commentary, review notes or MT links on verse `key`, as a block
+     under the text: a heading, then the notes in columns. `box._count` is how many
      there are (for the row's marker), `box._changed` whether any is changed. */
   function notesCell(ctx, layer, key) {
     const out = lib.notesFor(ctx.sec[layer], key).map(function (n) { return noteEl(ctx, n, layer); });
@@ -235,11 +246,12 @@
     (ctx.branch[layer] || []).filter(gone).forEach(function (ch) { out.push(branchDeletedNote(ctx, ch, layer)); });
     (ctx.changes[layer] || []).filter(gone).forEach(function (ch) { out.push(deletedNote(ctx, ch, layer)); });
     const list = UI.el('div.notelist', out);
+    const adding = ctx.editing && editable(layer);
     const box = cell(layer, [UI.el('div.annhead', { text: ANN_TITLE[layer] }), list],
-      out.length || ctx.editing ? null : 'none');
+      out.length || adding ? null : 'none');
     box._count = count;
     box._changed = out.some(function (el) { return el.classList.contains('changed') || el.classList.contains('branched'); });
-    if (ctx.editing) {
+    if (adding) {
       box.appendChild(UI.el('div.addnote', [UI.el('button.linkbtn', {
         type: 'button', text: layer === 'notes' ? '+ review note' : '+ commentary',
         onclick: function () { newNote(ctx, box, layer, key, ''); }
@@ -248,14 +260,26 @@
     return box;
   }
 
+  /* A verse's notes of each layer, as notesCell() draws them, and the block
+     of them under its text. */
+  function noteBoxes(ctx, key) {
+    const boxes = {};
+    ANN.forEach(function (layer) { boxes[layer] = notesCell(ctx, layer, key); });
+    return boxes;
+  }
+
+  function annBlock(boxes) {
+    return UI.el('div.ann', ANN.map(function (layer) { return boxes[layer]; }));
+  }
+
   /* In a verse's right margin: how many notes each hidden layer has on it.
      It opens them for this verse alone. applyCols() shows the parts for the
      layers that are hidden, and hides the marker when that leaves nothing. */
   function marker(row, boxes, editing) {
-    const part = function (layer, icon) {
+    const part = function (layer) {
       const n = boxes[layer]._count;
       return UI.el('span.mk-' + layer + (boxes[layer]._changed ? '.changed' : ''), { 'data-n': n },
-        [icon(), UI.el('span', { text: n ? String(n) : '+' })]);
+        [TR.icons[ANN_ICON[layer]](), UI.el('span', { text: n ? String(n) : '+' })]);
     };
     const m = UI.el('button.annmark', {
       type: 'button', 'aria-expanded': 'false',
@@ -263,8 +287,9 @@
         const open = row.classList.toggle('open');
         m.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
-    }, [part('co', TR.icons.comment), part('notes', TR.icons.note)]);
-    m._counts = { co: boxes.co._count, notes: boxes.notes._count };
+    }, ANN.map(part));
+    m._counts = {};
+    ANN.forEach(function (layer) { m._counts[layer] = boxes[layer]._count; });
     m._editing = editing;
     return m;
   }
@@ -274,13 +299,12 @@
     let any = false;
     ANN.forEach(function (layer) {
       const part = m.querySelector('.mk-' + layer);
-      const show = !cols[layer] && (m._counts[layer] > 0 || m._editing);
+      const show = !cols[layer] && (m._counts[layer] > 0 || (m._editing && editable(layer)));
       part.hidden = !show;
       if (show) {
         any = true;
         const n = m._counts[layer];
-        label.push(n ? n + ' ' + (layer === 'co' ? (n === 1 ? 'comment' : 'comments') : (n === 1 ? 'review note' : 'review notes'))
-          : 'add ' + (layer === 'co' ? 'commentary' : 'a review note'));
+        label.push(n ? countText(layer, n) : 'add ' + (layer === 'co' ? 'commentary' : 'a review note'));
       }
     });
     m.hidden = !any;
@@ -714,8 +738,8 @@
         page.targum ? UI.el('div', { role: 'radiogroup', 'aria-label': 'Beside the Hebrew' },
           [one('en', 'English (JPS 1917)'), one('tg', 'Targum Onqelos')]) : null,
         UI.el('p.dm-sub', { text: page.targum
-          ? 'Where there is no Targum (beyond the Torah), the English. Select a verse to see its commentary and review notes.'
-          : 'English (JPS 1917): the Targum is on the Torah alone. Select a verse to see its commentary and review notes.' })
+          ? 'Where there is no Targum (beyond the Torah), the English. Select a verse to see its commentary, review notes and MT links.'
+          : 'English (JPS 1917): the Targum is on the Torah alone. Select a verse to see its commentary, review notes and MT links.' })
       ]));
       menu.hidden = !displayOpen;
       return UI.el('div.dispwrap', [UI.el('div.segs', [btn]), menu]);
@@ -728,8 +752,9 @@
       col('en', 'English (JPS 1917)'),
       scroll ? null : col('co', 'Commentary'),
       scroll ? null : col('notes', 'Review notes'),
+      scroll ? null : col('mt', 'MT links'),
       UI.el('p.dm-sub', { text: scroll
-        ? 'In the panel for the verse you select, with its commentary and review notes.'
+        ? 'In the panel for the verse you select, with its commentary, review notes and MT links.'
         : 'A hidden notes layer still shows its count beside each verse.' })
     ]));
     menu.hidden = !displayOpen;
@@ -941,7 +966,7 @@
 
   function verseRow(ctx, r) {
     const href = verseHref(ctx, r.key);
-    const boxes = { co: notesCell(ctx, 'co', r.key), notes: notesCell(ctx, 'notes', r.key) };
+    const boxes = noteBoxes(ctx, r.key);
     const el = row('law', [], rowId(ctx, r.key));
     el._ctx = ctx;
     el.setAttribute('data-key', r.key);
@@ -953,7 +978,7 @@
     UI.append(el, [
       UI.el('div.text', cells),
       UI.el('div.rmargin', [marker(el, boxes, ctx.editing), bookmarkBtn(ctx, r.key)]),
-      UI.el('div.ann', [boxes.co, boxes.notes])
+      annBlock(boxes)
     ]);
     return el;
   }
@@ -964,7 +989,7 @@
     const el = row('general');
     const box = cell('co', [UI.el('div.annhead', { text: title || 'Commentary: general remarks' })].concat(blocks));
     box._count = 1;
-    const m = marker(el, { co: box, notes: { _count: 0 } }, false);
+    const m = marker(el, { co: box, notes: { _count: 0 }, mt: { _count: 0 } }, false);
     m.querySelector('.mk-co span').textContent = 'General remarks';
     UI.append(el, [m, UI.el('div.ann', [box])]);
     return el;
@@ -1055,8 +1080,8 @@
     if (same(v, chosen)) el.classList.add('sel');
   }
 
-  /* Has verse `v` commentary or review notes, or a change to them (the
-     drafts' or the branch's)? */
+  /* Has verse `v` commentary, review notes or MT links, or a change to
+     them (the drafts' or the branch's)? */
   function annotated(v) {
     return ANN.some(function (layer) {
       return noteCounts(v.ctx, layer).get(v.key) || touched(v.ctx.changes, layer, v.key) || touched(v.ctx.branch, layer, v.key);
@@ -1074,7 +1099,7 @@
       const n = noteCounts(ctx, layer).get(v.key) || 0;
       const mine = touched(ctx.changes, layer, v.key), up = touched(ctx.branch, layer, v.key);
       if (n || mine || up) bits.push(UI.el('i.sc-dot.' + layer + (mine ? '.changed' : up ? '.branched' : '')));
-      if (n) said.push(n + ' ' + (layer === 'co' ? (n === 1 ? 'comment' : 'comments') : (n === 1 ? 'review note' : 'review notes')));
+      if (n) said.push(countText(layer, n));
     });
     const name = ctx.title + ' ' + v.key + (said.length ? ' · ' + said.join(', ') : '');
     /* Side by side, the English's numbers are its own verses; choosing one
@@ -1118,7 +1143,7 @@
     }
     const ctx = v.ctx, key = v.key;
     const r = sheet ? {} : verseRows(ctx, v.c, v.n, v.n)[0] || {};
-    const boxes = { co: notesCell(ctx, 'co', key), notes: notesCell(ctx, 'notes', key) };
+    const boxes = noteBoxes(ctx, key);
     const at = s.order.indexOf(v);
     /* The sheet steps to the next verse it would open for. */
     const next = function (d) {
@@ -1152,9 +1177,9 @@
       ]),
       sheet ? null : UI.el('div.text', TEXT.filter(function (col) { return col !== 'he' && (col !== 'tg' || ctx.sec.tg); })
         .map(function (col) { return unitCell(ctx, col, r[col], key, verseHref(ctx, key)); })),
-      UI.el('div.ann', [boxes.co, boxes.notes]),
-      boxes.co._count || boxes.notes._count || ctx.editing ? null
-        : UI.el('p.vp-none', { text: 'No commentary or review notes on this verse yet.' })
+      annBlock(boxes),
+      ANN.some(function (layer) { return boxes[layer]._count; }) || ctx.editing ? null
+        : UI.el('p.vp-none', { text: 'No commentary, review notes or MT links on this verse yet.' })
     ]);
     el.id = 'vp-' + rowId(ctx, key);
     el._ctx = ctx;
