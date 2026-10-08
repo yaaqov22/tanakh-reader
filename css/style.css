@@ -810,22 +810,22 @@ a.crumb:hover { color: var(--accent); }
 
 /* Two scrolls in columns, the Hebrew at the right, a rule between, each
    with its own numbers margin: the English's at its left, where its lines
-   begin. Nothing lines them up. Narrow, one goes above the other. The
-   chosen verse's notes rise in a sheet from the bottom. */
+   begin. They run in rows, one for each stretch between the sections both
+   share (reader.js), so each row starts level and the taller column sets
+   its height. Narrow, a row's Hebrew goes above the other text. The chosen
+   verse's notes rise in a sheet from the bottom. */
 .grid.parmode { padding-top: 8px; }
 .grid.parmode.chosen { padding-bottom: 46vh; }
 .grid.parmode .row.passage { max-width: none; margin: 0; }
-.par {
+.par { max-width: 1500px; margin: 0 auto; padding: 18px 0 28px; }
+.par-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas: "other he";
-  column-gap: 0;
-  max-width: 1500px;
-  margin: 0 auto;
 }
-.par > .scroll { grid-area: other; grid-template-columns: minmax(0, 1fr) 46px; column-gap: 10px; padding-right: 24px; }
-.par > .scroll.en { grid-template-columns: 46px minmax(0, 1fr); }
-.par > .scroll.he { grid-area: he; padding: 18px 0 28px 24px; border-left: 1px solid var(--line-soft); }
+.par-row > .scroll { grid-area: other; grid-template-columns: minmax(0, 1fr) 46px; column-gap: 10px; padding: 0 24px 0 0; }
+.par-row > .scroll.en { grid-template-columns: 46px minmax(0, 1fr); }
+.par-row > .scroll.he { grid-area: he; padding: 0 0 0 24px; border-left: 1px solid var(--line-soft); }
 .grid.parmode .sc-text.he { font-size: 22px; }
 .grid.parmode .sc-text.tg { font-size: 20px; }
 .grid.parmode .sc-text.en { font-family: var(--font); font-size: 17.5px; line-height: 1.7; hyphens: auto; }
@@ -852,11 +852,11 @@ a.crumb:hover { color: var(--accent); }
 .grid.parmode > .vpanel .ann .cell:first-child { margin-top: 4px; }
 
 @media (max-width: 760px) {
-  .par { grid-template-columns: minmax(0, 1fr); grid-template-areas: "he" "other"; }
-  .par > .scroll { padding-right: 0; }
-  .par > .scroll.he { padding-left: 0; border-left: 0; border-bottom: 1px solid var(--line-soft); }
-  .par > .scroll { grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
-  .par > .scroll.en { grid-template-columns: 40px minmax(0, 1fr); }
+  .par { padding-top: 6px; }
+  .par-row { grid-template-columns: minmax(0, 1fr); grid-template-areas: "he" "other"; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .par-row > .scroll { padding: 0; grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
+  .par-row > .scroll.he { padding: 0 0 4px; border-left: 0; }
+  .par-row > .scroll.en { grid-template-columns: 40px minmax(0, 1fr); }
   .grid.parmode .sc-text.he { font-size: 20px; }
   .grid.parmode .sc-text.tg { font-size: 19px; }
   .grid.parmode .sc-text.en { font-size: 16.5px; }
