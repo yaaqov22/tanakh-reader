@@ -1,6 +1,6 @@
 # Tanakh Reader
 
-A reader for the Tanakh, with the Hebrew, Targum Onqelos and English side by side, one row per verse, and a place under every verse for commentary and review notes. It exists to write a **Commentary on the Tanakh for Noahides**.
+A reader for the Tanakh, with the Hebrew, Targum Onqelos and English side by side, one row per verse, and a place under every verse for commentary and review notes, and the places the Mishneh Torah quotes it. It exists to write a **Commentary on the Tanakh for Noahides**.
 
 It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares its design: a static, offline-first web app with no build step, reading the texts from a GitHub repository ([tanakh](https://github.com/yaaqov22/tanakh)) with each user's own token, keeping edits as drafts on the device and submitting them as pull requests.
 
@@ -13,6 +13,7 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
 | Review notes | yours | Editable, and signed with your name and the date. |
+| MT links | the [Mishneh Torah](https://github.com/yaaqov22/mishneh-torah) | Every halakhah that quotes the verse: its name, chapter and number, linked to it in [MT Reader](https://yaaqov22.github.io/mt-reader/), then its text. Generated (`tools/mt-links.mjs`), not edited. |
 
 The texts themselves are read-only. Only the commentary and review notes are edited.
 
@@ -26,7 +27,7 @@ The texts themselves are read-only. Only the commentary and review notes are edi
 
 The first buttons in the reader's header switch between them.
 
-- **Interlinear**: one row per verse, the texts side by side, the commentary and review notes under each verse. The section marks show as they stand in the text (`{פ}`, `{ס}`, `{ר}`, `{ש}`, and the English's `{P}`, `{S}`, `{N}`), small and grey, and nothing is laid out by them.
+- **Interlinear**: one row per verse, the texts side by side, the commentary, review notes and MT links under each verse. The section marks show as they stand in the text (`{פ}`, `{ס}`, `{ר}`, `{ש}`, and the English's `{P}`, `{S}`, `{N}`), small and grey, and nothing is laid out by them.
 - **Side by side**: the Hebrew at the right and one other text beside it (the English, or the Targum on the Torah, chosen in the Display menu), each laid out as the scroll is, by its own section marks (the English's `{P}`, `{S}` and `{N}` read as `{פ}`, `{ס}` and `{ר}`), each with its own verse numbers. The columns are lined up only where both have a full break (an open section, a song's line end or a blank line, but not a closed section) after the same verse: there both start level again, and in between each runs free in its own shape. Selecting a verse in either lights it in both, and if it has commentary or review notes (or in edit mode) they rise in a sheet from the bottom, to read and edit there; its arrows step to the previous and next verse with notes. A book's or chapter's general commentary stands above the columns, opened by its marker. On narrow screens each section's Hebrew goes above its other text.
 - **Scroll**: the Hebrew alone, set as a scroll sets it. An open section (`{פ}`) ends its paragraph, and what follows starts on a new line. A closed section (`{ס}`) is a gap within the line. In the songs and lists written in their own layout (the Song of the Sea, Ha'azinu, the kings of Joshua 12, the sons of Haman), each line ends at `{ר}` and its parts are spread across the column, which gives the brick patterns. `{ש}` is a blank line. The verse numbers stand in a margin at the right, each level with the line its verse starts on, with a dot when the verse has commentary (grey) or review notes (brown). Select a verse, by its number or its text, to open it in the panel beside the scroll: its translation and Targum, and its commentary and review notes, which are read and edited there as in the interlinear rows. On narrow screens the panel rises from the bottom. **j** / **k** move to the next and previous verse, and **Esc** closes it.
 
@@ -64,6 +65,14 @@ The importer unpacks the zips under `out/src/` and converts each chapter page in
 
 Copy `out/data/` over the `tanakh` checkout to update it. Commentary and Notes are never generated, so copying never touches them.
 
+## The MT links: `tools/mt-links.mjs`
+
+```bash
+"$NODE" tools/mt-links.mjs
+```
+
+It reads the sibling checkouts `../mishneh-torah` (the texts) and `../mt-reader` (its `js/refs.js`, which finds the Tanakh references in them) and writes `../tanakh/MT/`, replacing what is there. Every halakhah's citations are read from its Hebrew, "(דברים ו,ד)", which numbers the verses as Mechon Mamre does; from its English, "(Deuteronomy 6:4)", only where the Hebrew cites nothing (the English sometimes numbers Exodus 20 differently). A range is linked on its first verse, and a chapter cited alone on its verse 1. The quoted text is the English, or the Hebrew where the halakhah isn't translated yet.
+
 ### File format
 
 `js/format.js` is the single parser and writer, shared by the app and the tools. A file is canonical exactly when `write(parse(file)) === file`.
@@ -75,6 +84,7 @@ Targum/01-onq.md       Onqelos (Torah only); 01-onqk.md unpointed
 Translation/01-en.md   # Genesis / ## Genesis, Chapter 1 / 1:1 In the beginning …
 Commentary/01-co.md    [^1.1.1]: text   (chapter.verse.n; continuation paragraphs tab-indented)
 Notes/01-notes.md      the same, for review notes
+MT/01-mt.md            the same, for MT links: [^6.4.2]: ***[Laws of … 1:7](https://…/mt-reader/#/read/1-1/1/7)*** - text
 ```
 
 Book ids are Mechon Mamre's: `01`–`05` are the Torah, `08a`/`08b` are Samuel, `25a`/`25b` are Chronicles (first among the Writings), and `35a`/`35b` are Ezra and Nehemiah.
@@ -115,9 +125,10 @@ The same layout as MT Reader. Every script attaches itself to `window.TR`.
 | `js/scroll.js` | The scroll layout: the text cut into paragraphs, song lines and blank lines by its section marks, and the verse numbers' margin |
 | `js/books.js` | Home screens: Books, Parashot, Holidays |
 | `js/markdown.js` | Inline Markdown for notes, and verse rendering for the interlinear layout (section marks as written, ktiv/qere, large letters) |
-| `js/search.js` | Search over Hebrew, Targum, English and notes; matches with or without vowels |
+| `js/search.js` | Search over Hebrew, Targum, English and notes, and the MT links when their chip is on (off by default); matches with or without vowels |
 | `js/edit.js`, `merge.js`, `submit.js`, `changes.js`, `review.js`, `branches.js`, `session.js` | Drafts, merging, pull requests, reviewing branches, live sessions (from MT Reader) |
 | `tools/import.mjs` | Builds the `tanakh` repo from the zips |
+| `tools/mt-links.mjs` | Builds its `MT/` links from the Mishneh Torah |
 
 ## Still to do
 

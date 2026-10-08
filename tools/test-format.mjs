@@ -145,7 +145,7 @@ test('a verse keeps its line breaks, marks and qere through a round trip', () =>
 if (fs.existsSync(opt.root)) {
   const read = p => fs.readFileSync(path.join(opt.root, p), 'utf8');
   const walk = d => fs.readdirSync(path.join(opt.root, d)).map(f => `${d}/${f}`);
-  const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Notes']
+  const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Notes', 'MT']
     .filter(d => fs.existsSync(path.join(opt.root, d))).flatMap(walk);
   const docs = new Map();   // path → doc
 
@@ -187,11 +187,11 @@ if (fs.existsSync(opt.root)) {
     assert.deepEqual(bad, []);
   });
 
-  test('every commentary/notes label points at an existing verse', () => {
+  test('every commentary/notes/MT links label points at an existing verse', () => {
     const bad = [];
     for (const [f, doc] of docs) {
       const c = F.classify(f);
-      if (c.layer !== 'co' && c.layer !== 'notes') continue;
+      if (F.NOTE_LAYERS.indexOf(c.layer) < 0) continue;
       const verses = new Set(F.units(docs.get(F.paths(c.id).he)).map(u => u.key));
       for (const ch of doc.chapters) for (const n of ch.notes) {
         if (n.c == null) { bad.push(`${f}: [^${n.label}] not c.v.n`); continue; }
