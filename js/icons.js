@@ -71,10 +71,13 @@
     bookmark: function () {
       return svg('<path d="M6.5 3.5h11v17l-5.5-4.5-5.5 4.5z"/>');
     },
-    /* The reader's layouts: interlinear rows of two columns, and a scroll's
-       column between its rollers. */
+    /* The reader's layouts: interlinear rows of two columns, two set columns
+       with a rule between, and a scroll's column between its rollers. */
     lines: function () {
       return svg('<path d="M4 6h6.5M13.5 6H20M4 10h5M13.5 10H18M4 15h6.5M13.5 15H20M4 19h4.5M13.5 19H17"/>');
+    },
+    parallel: function () {
+      return svg('<path d="M12 3.5v17"/><path d="M3.5 6.5h5.5M3.5 10h5.5M3.5 13.5h3.5M3.5 17h5.5M15 6.5h5.5M15 10h5.5M15 13.5h5.5M17 17h3.5"/>');
     },
     scroll: function () {
       return svg('<path d="M4.5 3.5v17M19.5 3.5v17"/><path d="M8 7h8M8 10.5h8M8 14h5M8 17.5h8"/>');

@@ -26,7 +26,13 @@
    several where a verse is cut by line ends or gaps. The first carries the
    verse's id, for linking to it. Verse numbers stand in a margin of their
    own beside the lines the verses start on (numbers()), measured from where
-   the browser put the text; nothing else here measures. */
+   the browser put the text; nothing else here measures.
+
+   The Targum and the English are set by the same rules, each by its own
+   marks: the Targum has the Hebrew's, and the English has {P} (open), {S}
+   (closed) and {N} (a line's end). Side by side, each column is laid out on
+   its own, with its own numbers: the columns are not lined up with each
+   other, and break where their own marks say. */
 
 (function (TR) {
   'use strict';
@@ -34,8 +40,8 @@
   const UI = TR.ui;
   const F = TR.format;
 
-  const MARK = /\{([פסרש])\}|\n/g;
-  const KIND = { 'פ': 'pe', 'ס': 'samekh', 'ר': 'line', 'ש': 'blank' };
+  const MARK = /\{([פסרשPSN])\}|\n/g;
+  const KIND = { 'פ': 'pe', 'ס': 'samekh', 'ר': 'line', 'ש': 'blank', 'P': 'pe', 'S': 'samekh', 'N': 'line' };
 
   /* A verse's text as [{ text } | { mark }], the marks split out. */
   function tokens(text) {
@@ -84,7 +90,7 @@
 
   /* One part: its pieces, a space between verses. `piece(v, el)` is told of
      each, to mark it (selected, bookmarked, changed on the branch). */
-  function partEl(tag, pieces, seen, piece) {
+  function partEl(tag, pieces, seen, piece, opts) {
     const el = UI.el(tag);
     pieces.forEach(function (p, i) {
       if (i) el.appendChild(document.createTextNode(' '));
@@ -92,9 +98,9 @@
       if (!seen.has(p.v)) {
         seen.add(p.v);
         s.classList.add('first');
-        if (p.v.id) s.id = p.v.id;
+        if (p.v.id && opts.ids) s.id = p.v.id;
       }
-      TR.md.verse(p.text, s, 'he');
+      TR.md.verse(p.text, s, opts.col === 'en' ? 'en' : 'he');
       piece(p.v, s);
       el.appendChild(s);
     });
@@ -102,22 +108,25 @@
   }
 
   /* The passage's verses, laid out: div.sc-text, to go beside a numbers
-     margin. */
-  function build(verses, piece) {
+     margin. opts: { col: 'he' | 'tg' | 'en', ids: whether its pieces carry
+     the verses' ids (only one column on a page does) }. */
+  const LANG = { he: 'he', tg: 'arc', en: 'en' };
+  function build(verses, piece, opts) {
+    opts = Object.assign({ col: 'he', ids: true }, opts);
     const seen = new Set();
-    const text = UI.el('div.sc-text', { lang: 'he', dir: 'rtl' });
+    const text = UI.el('div.sc-text.' + opts.col, { lang: LANG[opts.col], dir: opts.col === 'en' ? 'ltr' : 'rtl' });
     blocks(verses).forEach(function (b) {
       if (b.kind === 'blank') { text.appendChild(UI.el('div.sc-blank')); return; }
       if (b.kind === 'line') {
         const line = UI.el('div.sc-line' + (b.parts.length > 1 ? '.spread' : ''));
-        b.parts.forEach(function (p) { line.appendChild(partEl('span.sc-part', p, seen, piece)); });
+        b.parts.forEach(function (p) { line.appendChild(partEl('span.sc-part', p, seen, piece, opts)); });
         text.appendChild(line);
         return;
       }
       const para = UI.el('p.sc-para');
       b.parts.forEach(function (p, i) {
         if (i) para.appendChild(UI.el('span.sc-gap', { title: 'Closed section (setumah)' }));
-        const el = partEl('span', p, seen, piece);
+        const el = partEl('span', p, seen, piece, opts);
         while (el.firstChild) para.appendChild(el.firstChild);
       });
       text.appendChild(para);
@@ -150,8 +159,9 @@
     UI.fill(margin, out);
   }
 
-  /* "א" for a verse, "ג,א" for a chapter's first. */
-  function numeral(v) {
+  /* "א" for a verse, "ג,א" for a chapter's first; in English "1" and "3:1". */
+  function numeral(v, lang) {
+    if (lang === 'en') return (v.chapterStart ? v.c + ':' : '') + v.n;
     return (v.chapterStart ? F.numToHeb(v.c) + ',' : '') + F.numToHeb(v.n);
   }
 
