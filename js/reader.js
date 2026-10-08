@@ -6,8 +6,9 @@
    SIDE BY SIDE: the Hebrew and one other text (the English, or the Targum
    on the Torah, as the Display menu chooses), each set as a scroll sets it
    by its own section marks (scroll.js), in columns of their own, each with
-   its own verse numbers. They are not lined up: the numbers and the
-   sections say where one is in the other. Selecting a verse lights it in
+   its own verse numbers. They are lined up only at the full breaks (the
+   end of a paragraph, a song's line, a blank line) that both have after the
+   same verse, and run free in between. Selecting a verse lights it in
    both, and if it has commentary or review notes (or in edit mode) they rise
    in a sheet from the bottom, to read and edit as in the interlinear rows.
 
@@ -1215,9 +1216,11 @@
      above the passage, as the interlinear's does, opened by its marker.
 
      Side by side, each passage is two scrolls: the Hebrew, at the right,
-     and the text beside it. The verses chosen and looked up (s.order,
-     s.byKey) are the Hebrew's; the other column's pieces name the same
-     verses, so choosing or hovering one is choosing or hovering both. */
+     and the text beside it, in rows that end wherever both break fully
+     after the same verse (scroll.js sync()). The verses chosen and looked
+     up (s.order, s.byKey) are the Hebrew's; the other column's pieces name
+     the same verses, so choosing or hovering one is choosing or hovering
+     both. */
   function scrollBody(page, parallel) {
     const s = { order: [], byKey: new Map(), boxes: [], panel: null, parallel: parallel };
     const general = [];
@@ -1234,13 +1237,20 @@
       }
       const verses = scrollVerses(p.ctx, p.from, p.to, 'he');
       verses.forEach(function (v) { s.order.push(v); s.byKey.set(v.sec + ' ' + v.key, v); });
-      const he = scrollColumn(verses, 'he', true);
-      s.boxes.push(he.box);
-      if (!parallel) { main.appendChild(he.el); return; }
+      if (!parallel) {
+        const he = scrollColumn(verses, 'he', true);
+        s.boxes.push(he.box);
+        main.appendChild(he.el);
+        return;
+      }
+      /* A row for each stretch between the sections both texts share, so
+         the columns start level again at each. */
       const col = beside(p.ctx);
-      const other = scrollColumn(scrollVerses(p.ctx, p.from, p.to, col), col, false);
-      s.boxes.push(other.box);
-      main.appendChild(UI.el('div.par', [he.el, other.el]));
+      main.appendChild(UI.el('div.par', TR.scroll.sync(verses, scrollVerses(p.ctx, p.from, p.to, col)).map(function (r) {
+        const he = scrollColumn(r[0], 'he', true), other = scrollColumn(r[1], col, false);
+        s.boxes.push(he.box, other.box);
+        return UI.el('div.par-row', [he.el, other.el]);
+      })));
     });
     s.general = function () {
       return general.map(function (g) {

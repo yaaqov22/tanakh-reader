@@ -31,8 +31,9 @@
    The Targum and the English are set by the same rules, each by its own
    marks: the Targum has the Hebrew's, and the English has {P} (open), {S}
    (closed) and {N} (a line's end). Side by side, each column is laid out on
-   its own, with its own numbers: the columns are not lined up with each
-   other, and break where their own marks say. */
+   its own, with its own numbers, and breaks where its own marks say. The
+   columns are lined up only where both break fully after the same verse
+   (sync()): there they start level again, and in between they run free. */
 
 (function (TR) {
   'use strict';
@@ -107,6 +108,36 @@
     return el;
   }
 
+  /* Does a verse's text end with a full break: the end of a paragraph, a
+     line or a blank line ({פ} {ר} {ש}, the English's {P} {N}, a newline)?
+     Not a closed section ({ס} {S}), which goes on along the line. */
+  function breaksAfter(text) {
+    const t = tokens(text);
+    const last = t[t.length - 1];
+    return !!last && !!last.mark && last.mark !== 'samekh';
+  }
+
+  /* Two columns' verses, side by side, cut wherever both break fully after
+     the same verse: → [[a's, b's]], a slice of each per stretch. Each
+     stretch starts level in both columns, so they come back into step at
+     every section the two share, and in between each keeps its own shape.
+     A break only one of them has is not a cut. */
+  function sync(a, b) {
+    const at = new Map();
+    b.forEach(function (v, j) { at.set(v.key, j); });
+    const out = [];
+    let i0 = 0, j0 = 0;
+    a.forEach(function (v, i) {
+      const j = at.get(v.key);
+      if (j === undefined || j < j0 || !breaksAfter(v.text) || !breaksAfter(b[j].text)) return;
+      out.push([a.slice(i0, i + 1), b.slice(j0, j + 1)]);
+      i0 = i + 1;
+      j0 = j + 1;
+    });
+    if (i0 < a.length || j0 < b.length) out.push([a.slice(i0), b.slice(j0)]);
+    return out;
+  }
+
   /* The passage's verses, laid out: div.sc-text, to go beside a numbers
      margin. opts: { col: 'he' | 'tg' | 'en', ids: whether its pieces carry
      the verses' ids (only one column on a page does) }. */
@@ -165,6 +196,6 @@
     return (v.chapterStart ? F.numToHeb(v.c) + ',' : '') + F.numToHeb(v.n);
   }
 
-  TR.scroll = { tokens: tokens, blocks: blocks, build: build, numbers: numbers, numeral: numeral };
+  TR.scroll = { tokens: tokens, blocks: blocks, breaksAfter: breaksAfter, sync: sync, build: build, numbers: numbers, numeral: numeral };
 
 })(window.TR);
