@@ -59,6 +59,8 @@
     heMode: 'teamim',   // how the Hebrew shows: plain, pointed, punct (Mechon Mamre's punctuation) or teamim
     layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse), 'parallel' (the Hebrew and one text, each set as in a scroll, side by side) or 'scroll' (the Hebrew alone, set as in a scroll)
     beside: 'en',       // in the parallel layout, the text beside the Hebrew: 'en' or 'tg'
+    paneOpen: true,     // side by side, whether the notes pane at the bottom is open
+    paneHeight: 0,      // …and its height in pixels, as dragged (0: a third of the screen)
     editing: false,
     name: '',       // signs review notes; filled from the token's login when checked
     login: '',      // the token's GitHub login, once known: names the submit branch

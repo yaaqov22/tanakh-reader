@@ -9,8 +9,10 @@
    its own verse numbers. They are lined up only at the full breaks (the
    end of a paragraph, a song's line, a blank line) that both have after the
    same verse, and run free in between. Selecting a verse lights it in
-   both, and if it has commentary or review notes (or in edit mode) they rise
-   in a sheet from the bottom, to read and edit as in the interlinear rows.
+   both, and its commentary, review notes and MT links show in a pane along
+   the bottom of the screen, to read and edit as in the interlinear rows. The
+   pane opens and closes from its bar, and its top edge drags to resize it;
+   it stays as it was left.
 
    SCROLL: the Hebrew alone, set as a scroll sets it, in blocks shaped by its
    section marks (scroll.js). The verse numbers stand in a margin of their
@@ -583,7 +585,11 @@
   }
 
   document.addEventListener('selectionchange', TR.debounce(checkSel, 200));
-  TR.bus.on('route', function (r) { if (r.id !== 'read' && r.id !== 'portion') hideSel(); });
+  TR.bus.on('route', function (r) {
+    if (r.id === 'read' || r.id === 'portion') return;
+    hideSel();
+    document.body.classList.remove('paned');
+  });
 
   /* Commentary that isn't anchored to a verse: the book's own introduction,
      and any unnumbered chapters of general remarks. */
@@ -835,18 +841,115 @@
     };
   }
 
-  /* marked: keys of chapters with changes on the branch, flagged in the list. */
-  function chapterPager(ix, meta, i, withSelect, marked) {
+  /* The header's: the book's name, which opens the tables of contents, and
+     the chapter's, which opens all the book's chapters (`marked`: the keys
+     of those with changes on the branch, flagged there). */
+  function chapterPager(ix, meta, i, withNav, marked) {
     const n = neighbours(ix, meta, i);
-    let select = null;
-    if (withSelect && meta.chapters.length > 1) {
-      select = UI.select(meta.chapters.map(function (c) {
-        return { value: c.key, label: 'Chapter ' + c.n + (marked && marked.has(c.key) ? ' • changed' : '') };
-      }), meta.chapters[i].key, function () { UI.go('read', [meta.id, select.value]); });
-      select.setAttribute('aria-label', 'Chapter');
-      select.classList.add('chsel');
+    const chapter = 'Chapter ' + meta.chapters[i].n;
+    const middle = withNav ? [
+      navPop('Books, parashot and holidays', meta.en, 'contents', function () { return contentsNav(ix, 'books', meta.id, meta.chapters[i].key); }),
+      meta.chapters.length > 1
+        ? navPop('Chapters of ' + meta.en, chapter, 'chapters', function () { return chapterNav(meta, i, marked); })
+        : UI.el('span.navtext.solo', { text: chapter })
+    ] : null;
+    return pagerLinks(n.prev, n.next, middle, ['Previous chapter', 'Next chapter']);
+  }
+
+  /* ------------------------------------------------------------ navigator */
+
+  /* A name in the header that opens a pop-up below it, built when opened.
+     One is open at a time; a click outside it, Esc, or going anywhere
+     closes it. */
+  function navPop(label, text, cls, build) {
+    const pop = UI.el('div.navpop.' + cls, { role: 'dialog', 'aria-label': label });
+    pop.hidden = true;
+    const btn = UI.el('button.navbtn', {
+      type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: label,
+      onclick: function () {
+        const opening = pop.hidden;
+        closeNav();
+        if (!opening) return;
+        UI.fill(pop, build());
+        pop.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        reveal(pop);
+      }
+    }, [UI.el('span.navtext', { text: text }), TR.icons.chevron()]);
+    /* A link to where you already are goes nowhere, so close on any. */
+    pop.addEventListener('click', function (e) { if (e.target.closest('a[href]')) closeNav(); });
+    return UI.el('div.navwrap', [btn, pop]);
+  }
+
+  /* Scroll a pop-up (and not the page) to where you are in it, a third of
+     the way down; to its top if that is nowhere in it. */
+  function reveal(pop) {
+    const at = pop.querySelector('[aria-current="page"]') || pop.querySelector('.cur');
+    pop.scrollTop = at ? pop.scrollTop + at.getBoundingClientRect().top - pop.getBoundingClientRect().top - pop.clientHeight / 3 : 0;
+  }
+
+  function closeNav() {
+    document.querySelectorAll('.navpop:not([hidden])').forEach(function (p) {
+      p.hidden = true;
+      p.parentNode.querySelector('.navbtn').setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!document.contains(e.target) || e.target.closest('.navwrap')) return;   // its own tabs repaint it
+    closeNav();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    const pop = document.querySelector('.navpop:not([hidden])');
+    if (!pop) return;
+    e.preventDefault();   // the pop-up's Escape, not the verse panel's
+    closeNav();
+    pop.parentNode.querySelector('.navbtn').focus();
+  });
+  TR.bus.on('route', closeNav);
+
+  /* The book's chapters, as the contents page lists them. */
+  function chapterNav(meta, i, marked) {
+    return UI.el('div.chgrid', meta.chapters.map(function (c, j) {
+      const up = marked && marked.has(c.key);
+      return UI.el('a.chnum' + (up ? '.up' : ''), {
+        href: UI.href('read', [meta.id, c.key]), text: String(c.n),
+        title: meta.en + ' ' + c.n + (up ? ' (changed on this branch)' : ''),
+        'aria-current': j === i ? 'page' : null
+      });
+    }));
+  }
+
+  /* The contents page's three lists, as tabs: the books, each opening on
+     its chapters; the parashot; the holidays' readings. `which` is the tab
+     to open on, `cur` what is being read (a book's id or a portion's) and
+     `ch` the chapter's key, when a book's. */
+  function contentsNav(ix, which, cur, ch) {
+    const body = UI.el('div.navbody');
+    const TABS = { books: 'Books', parashot: 'Parashot', holidays: 'Holidays' };
+    const tabs = Object.keys(TABS).map(function (t) {
+      return UI.el('button.ptab', {
+        type: 'button', role: 'tab', text: TABS[t],
+        onclick: function () { openTab(t); }
+      });
+    });
+    function openTab(t) {
+      tabs.forEach(function (b, k) { b.setAttribute('aria-selected', Object.keys(TABS)[k] === t ? 'true' : 'false'); });
+      UI.fill(body, t === 'books' ? TR.contents.books(ix) : t === 'parashot' ? TR.contents.parashot(ix) : TR.contents.holidays(ix));
+      /* The book being read opens on its chapters; it or the portion being
+         read is marked. */
+      const here = body.querySelector('[data-sec="' + cur + '"], [data-portion="' + cur + '"]');
+      if (here) {
+        here.classList.add('cur');
+        if (here.tagName === 'DETAILS') here.open = true;
+        const at = ch && here.querySelector('a.chnum[href="' + UI.href('read', [cur, ch]) + '"]');
+        if (at) at.setAttribute('aria-current', 'page');
+      }
+      if (body.parentNode) reveal(body.parentNode);
     }
-    return pagerLinks(n.prev, n.next, select, ['Previous chapter', 'Next chapter']);
+    openTab(which);
+    return [UI.el('div.ptabs.navtabs', { role: 'tablist', 'aria-label': 'Contents' }, tabs), body];
   }
 
   /* What this page's drafts are, above the text: which files have changes,
@@ -1127,67 +1230,190 @@
      (as the Display menu has them), commentary and review notes. It is a
      verse row like the interlinear ones, so editing in it, and keeping an
      editor open across a repaint (holdRow), work the same. */
-  /* Side by side, the panel is a sheet rising from the bottom, and only for
-     a verse with notes on it, or in edit mode, or when a note is being
-     added to it from the selection (chosen.force); it holds those notes
-     alone, the texts being on the page. */
+  /* Side by side, it is the pane along the bottom (paneEl). */
   function versePanel() {
     const s = live.scroll;
     const v = chosen && s.byKey.get(chosen.sec + ' ' + chosen.key);
     const sheet = s.parallel;
-    if (!v || (sheet && !v.ctx.editing && !chosen.force && !annotated(v))) {
-      return UI.el('aside.vpanel.empty', sheet ? [] : [
+    if (sheet) return paneEl(v, s);
+    if (!v) {
+      return UI.el('aside.vpanel.empty', [
         UI.el('p.vp-hint', { text: 'Select a verse, by its number in the margin or its text, to see its translation and its commentary here.' }),
         s.general()
       ]);
     }
     const ctx = v.ctx, key = v.key;
-    const r = sheet ? {} : verseRows(ctx, v.c, v.n, v.n)[0] || {};
+    const r = verseRows(ctx, v.c, v.n, v.n)[0] || {};
     const boxes = noteBoxes(ctx, key);
-    const at = s.order.indexOf(v);
-    /* The sheet steps to the next verse it would open for. */
-    const next = function (d) {
-      for (let i = at + d; i >= 0 && i < s.order.length; i += d) {
-        if (!sheet || ctx.editing || annotated(s.order[i])) return s.order[i];
-      }
-      return null;
-    };
-    const step = function (d, icon, label) {
-      const to = next(d);
-      return UI.el('button.iconbtn.vp-step', {
-        type: 'button', disabled: !to, title: label, 'aria-label': label,
-        onclick: function () { if (to) choose(to, true); }
-      }, [icon()]);
-    };
     const el = UI.el('aside.row.law.open.vpanel', { 'data-key': key, 'data-sec': ctx.id }, [
       UI.el('div.vp-head', [
-        UI.el('a.vp-ref', { href: verseHref(ctx, key), title: 'This verse in its chapter' }, [
-          UI.el('strong', { text: ctx.title + ' ' + key }),
-          ctx.meta.he ? UI.el('span.vp-he', { lang: 'he', dir: 'rtl', text: ctx.meta.he + ' ' + F.numToHeb(v.c) + ',' + F.numToHeb(v.n) }) : null
-        ]),
+        verseRef(v),
         UI.el('div.vp-tools', [
-          sheet && !ctx.editing
-            ? [step(-1, TR.icons.up, 'Previous verse with notes'), step(1, TR.icons.down, 'Next verse with notes')]
-            : [step(-1, TR.icons.up, 'Previous verse (k)'), step(1, TR.icons.down, 'Next verse (j)')],
+          stepBtn(s, v, -1, false), stepBtn(s, v, 1, false),
           bookmarkBtn(ctx, key),
-          UI.el('button.iconbtn.vp-close', {
-            type: 'button', title: 'Close (Esc)', 'aria-label': 'Close', onclick: function () { choose(null); }
-          }, [TR.icons.close()])
+          closeBtn()
         ])
       ]),
-      sheet ? null : UI.el('div.text', TEXT.filter(function (col) { return col !== 'he' && (col !== 'tg' || ctx.sec.tg); })
+      UI.el('div.text', TEXT.filter(function (col) { return col !== 'he' && (col !== 'tg' || ctx.sec.tg); })
         .map(function (col) { return unitCell(ctx, col, r[col], key, verseHref(ctx, key)); })),
       annBlock(boxes),
-      ANN.some(function (layer) { return boxes[layer]._count; }) || ctx.editing ? null
-        : UI.el('p.vp-none', { text: 'No commentary, review notes or MT links on this verse yet.' })
+      noneNote(ctx, boxes)
     ]);
     el.id = 'vp-' + rowId(ctx, key);
     el._ctx = ctx;
     return el;
   }
 
+  /* The verse's name, linking to it in its chapter. */
+  function verseRef(v) {
+    const ctx = v.ctx;
+    return UI.el('a.vp-ref', { href: verseHref(ctx, v.key), title: 'This verse in its chapter' }, [
+      UI.el('strong', { text: ctx.title + ' ' + v.key }),
+      ctx.meta.he ? UI.el('span.vp-he', { lang: 'he', dir: 'rtl', text: ctx.meta.he + ' ' + F.numToHeb(v.c) + ',' + F.numToHeb(v.n) }) : null
+    ]);
+  }
+
+  /* To the previous or next verse; `noted`, to the next with notes. */
+  function stepBtn(s, v, d, noted) {
+    let to = null;
+    for (let i = s.order.indexOf(v) + d; i >= 0 && i < s.order.length; i += d) {
+      if (!noted || annotated(s.order[i])) { to = s.order[i]; break; }
+    }
+    const label = noted ? (d < 0 ? 'Previous verse with notes' : 'Next verse with notes')
+      : (d < 0 ? 'Previous verse (k)' : 'Next verse (j)');
+    return UI.el('button.iconbtn.vp-step', {
+      type: 'button', disabled: !to, title: label, 'aria-label': label,
+      onclick: function () { if (to) choose(to, true); }
+    }, [(d < 0 ? TR.icons.up : TR.icons.down)()]);
+  }
+
+  function closeBtn() {
+    return UI.el('button.iconbtn.vp-close', {
+      type: 'button', title: 'Close (Esc)', 'aria-label': 'Close', onclick: function () { choose(null); }
+    }, [TR.icons.close()]);
+  }
+
+  function noneNote(ctx, boxes) {
+    return ANN.some(function (layer) { return boxes[layer]._count; }) || ctx.editing ? null
+      : UI.el('p.vp-none', { text: 'No commentary, review notes or MT links on this verse yet.' });
+  }
+
+  /* ---------------------------------------------------------------- pane */
+
+  /* Side by side, the chosen verse's notes are in a pane fixed along the
+     bottom of the screen, the full width of it, the texts being on the page.
+     It is always there: a bar naming the verse and how many notes it has,
+     which opens and closes the pane, and when open the notes, as high as its
+     top edge has been dragged. Open or closed, and the height, are device
+     settings, so the pane stays as it was left whatever verse is chosen: one
+     with no notes still shows, to bookmark it, or in edit mode to add one. */
+  const PANE_MIN = 120;
+  let paneRO = null;
+
+  function paneMax() { return Math.max(PANE_MIN, window.innerHeight - fixedTop() - 40); }
+  function paneHeight(h) {
+    h = h || TR.device.get('paneHeight') || Math.round(window.innerHeight * 0.34);
+    return Math.max(PANE_MIN, Math.min(h, paneMax()));
+  }
+
+  function paneEl(v, s) {
+    const open = !!TR.device.get('paneOpen');
+    const ctx = v && v.ctx, key = v && v.key;
+    const boxes = v ? noteBoxes(ctx, key) : null;
+    const said = v ? ANN.filter(function (l) { return boxes[l]._count; }).map(function (l) { return countText(l, boxes[l]._count); }) : [];
+
+    const toggle = UI.el('button.iconbtn.pane-toggle', { type: 'button', onclick: function () { setOpen(!el.classList.contains('open-pane')); } });
+    const grip = UI.el('div.pane-grip', {
+      role: 'separator', tabindex: '0', 'aria-orientation': 'horizontal',
+      'aria-label': 'Height of the notes pane', title: 'Drag to resize'
+    });
+    const bar = UI.el('div.pane-bar', [
+      toggle,
+      v ? verseRef(v) : UI.el('span.pane-hint', { text: 'Notes · no verse selected' }),
+      v ? UI.el('span.pane-count' + (said.length ? '' : '.none'), { text: said.length ? said.join(' · ') : 'No notes' }) : null,
+      v ? UI.el('div.vp-tools', [
+        stepBtn(s, v, -1, !ctx.editing), stepBtn(s, v, 1, !ctx.editing),
+        bookmarkBtn(ctx, key),
+        closeBtn()
+      ]) : null
+    ]);
+    /* The bar's own background opens and closes it too. */
+    bar.addEventListener('click', function (e) {
+      if (!e.target.closest('a, button')) setOpen(!el.classList.contains('open-pane'));
+    });
+    const body = UI.el('div.pane-body', v ? [annBlock(boxes), noneNote(ctx, boxes)] : [
+      UI.el('p.vp-hint', { text: 'Select a verse, by its number or its text, to see its commentary, review notes and MT links here, or to bookmark it.' })
+    ]);
+
+    const el = UI.el('aside.vpanel.pane' + (v ? '.row.law.open' : ''), v ? { 'data-key': key, 'data-sec': ctx.id } : {},
+      [grip, bar, body]);
+    if (v) {
+      el.id = 'vp-' + rowId(ctx, key);
+      el._ctx = ctx;
+    }
+
+    function setOpen(o) {
+      TR.device.set({ paneOpen: o });
+      el.classList.toggle('open-pane', o);
+      el.style.height = o ? paneHeight() + 'px' : '';
+      toggle.setAttribute('aria-expanded', o ? 'true' : 'false');
+      const label = o ? 'Hide the notes' : 'Show the notes';
+      toggle.title = label;
+      toggle.setAttribute('aria-label', label);
+      UI.fill(toggle, [(o ? TR.icons.down : TR.icons.up)()]);
+    }
+    setOpen(open);
+
+    /* Dragging the top edge sets the height; so do the arrow keys on it. */
+    const resize = function (h) {
+      h = paneHeight(h);
+      el.style.height = h + 'px';
+      return h;
+    };
+    grip.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');
+      const y0 = e.clientY, h0 = el.offsetHeight;
+      const move = function (ev) { resize(h0 + y0 - ev.clientY); };
+      const end = function () {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', end);
+        grip.removeEventListener('pointercancel', end);
+        el.classList.remove('dragging');
+        TR.device.set({ paneHeight: el.offsetHeight });
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    });
+    grip.addEventListener('keydown', function (e) {
+      const d = e.key === 'ArrowUp' ? 32 : e.key === 'ArrowDown' ? -32 : 0;
+      if (!d) return;
+      e.preventDefault();
+      TR.device.set({ paneHeight: resize(el.offsetHeight + d) });
+    });
+    return el;
+  }
+
+  /* The page leaves room at its foot for the pane, however high it is. */
+  function watchPane(el) {
+    if (paneRO) paneRO.disconnect();
+    const set = function () { document.documentElement.style.setProperty('--pane-space', el.offsetHeight + 'px'); };
+    set();
+    if (window.ResizeObserver) {
+      paneRO = new ResizeObserver(set);
+      paneRO.observe(el);
+    }
+  }
+  window.addEventListener('resize', TR.debounce(function () {
+    const el = document.querySelector('.screen.on .vpanel.pane.open-pane');
+    if (el) el.style.height = paneHeight() + 'px';
+  }, 150));
+
   /* Open verse `v` (or nothing) in the panel. `reveal` scrolls the text to
-     it if it is out of sight; `force` opens the sheet, side by side, on a
+     it if it is out of sight; `force` opens the pane, side by side, for a
      verse with no notes yet (one is about to be added). */
   function choose(v, reveal, force) {
     if (!live || !live.scroll) return Promise.resolve();
@@ -1199,12 +1425,15 @@
   /* The same, at once: for painting the page, which must leave an open
      editor be (holdRow). */
   function show(v, reveal, force) {
-    chosen = v ? { page: live.page, sec: v.sec, key: v.key, force: !!force } : null;
+    chosen = v ? { page: live.page, sec: v.sec, key: v.key } : null;
+    /* A note about to be added from the selection needs the pane open. */
+    if (v && force && live.scroll.parallel) TR.device.set({ paneOpen: true });
     live.grid.querySelectorAll('.vs.sel, .sc-n.sel').forEach(function (el) { el.classList.remove('sel'); });
     if (chosen) live.grid.querySelectorAll('.vs' + pick(chosen) + ', .sc-n' + pick(chosen)).forEach(function (el) { el.classList.add('sel'); });
     const next = versePanel();
     live.scroll.panel.replaceWith(next);
     live.scroll.panel = next;
+    if (live.scroll.parallel) watchPane(next);
     const open = !!chosen && !next.classList.contains('empty');
     live.grid.classList.toggle('chosen', open);
     if (reveal && v) {
@@ -1366,9 +1595,11 @@
     hideSel();
     UI.crumbs(page.crumbs);
     UI.fill(host, [head, notes, grid, UI.el('footer.rfoot', [page.foot])]);
+    document.body.classList.toggle('paned', parallel);
     if (held) {
       putBack(grid, held);
       if (scroll) live.scroll.panel = grid.querySelector('.vpanel');
+      if (parallel) watchPane(live.scroll.panel);
     }
     fitHead(head);
     document.title = page.docTitle + ' — Tanakh Reader';
@@ -1523,20 +1754,18 @@
     return parts;
   }
 
-  /* Previous/next parashah (or holiday reading), and a list of them all. */
-  function portionPager(ix, p, part, withSelect) {
-    const list = /^r/.test(p.id) ? ix.readings : ix.parashot;
+  /* Previous/next parashah (or holiday reading); in the header, its name,
+     which opens the tables of contents. */
+  function portionPager(ix, p, part, withNav) {
+    const holiday = /^r/.test(p.id);
+    const list = holiday ? ix.readings : ix.parashot;
     const i = list.indexOf(p);
     const hrefOf = function (q) { return q ? UI.href('portion', [q.id]) : null; };
-    let select = null;
-    if (withSelect) {
-      select = UI.select(list.map(function (q) { return { value: q.id, label: q.en + ' · ' + q.he }; }), p.id,
-        function () { UI.go('portion', [select.value]); });
-      select.setAttribute('aria-label', /^r/.test(p.id) ? 'Reading' : 'Parashah');
-      select.classList.add('chsel');
-    }
-    return pagerLinks(hrefOf(list[i - 1]), hrefOf(list[i + 1]), select,
-      /^r/.test(p.id) ? ['Previous reading', 'Next reading'] : ['Previous parashah', 'Next parashah']);
+    const middle = withNav ? navPop('Books, parashot and holidays', p.en, 'contents', function () {
+      return contentsNav(ix, holiday ? 'holidays' : 'parashot', p.id);
+    }) : null;
+    return pagerLinks(hrefOf(list[i - 1]), hrefOf(list[i + 1]), middle,
+      holiday ? ['Previous reading', 'Next reading'] : ['Previous parashah', 'Next parashah']);
   }
 
   function portionTabs(p, parts, part) {

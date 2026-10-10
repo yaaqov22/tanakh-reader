@@ -590,14 +590,71 @@ a.crumb:hover { color: var(--accent); }
 .rbar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
 .pager { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .pager .iconbtn { width: 32px; height: 32px; min-width: 32px; }
-.chsel {
+/* The header's names: the book (or parashah), opening the tables of
+   contents, and the chapter, opening the book's chapters. */
+.pager .navwrap + .navwrap, .pager .navwrap + .navtext { margin-left: 4px; }
+.navwrap { position: relative; min-width: 0; }
+.navbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(40vw, 300px);
   min-height: 32px;
-  padding: 3px 8px;
+  padding: 3px 6px 3px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel);
-  max-width: min(46vw, 360px);
+  color: var(--text);
+  font-family: var(--font-ui);
   font-size: 14px;
+  cursor: pointer;
+}
+.navbtn:hover { border-color: var(--faint); }
+.navbtn[aria-expanded="true"] { border-color: var(--accent); }
+.navbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.navbtn svg { flex: none; width: 16px; height: 16px; color: var(--dim); }
+.navtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navtext.solo { padding: 0 8px; color: var(--dim); font-size: 14px; }
+.navpop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: min(620px, calc(100vw - 24px));
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.navpop.chapters { width: min(420px, calc(100vw - 24px)); padding-top: 10px; }
+.navpop .chgrid { padding: 0; }
+.chnum[aria-current="page"] { background: var(--accent); color: var(--bg); font-weight: 600; }
+.chnum.up { box-shadow: inset 0 -2px 0 var(--up); }
+.navtabs { position: sticky; top: 0; z-index: 1; margin: 0 -10px 6px; padding: 8px 10px 0; background: var(--panel); }
+.navtabs .ptab { border-top: 0; border-left: 1px solid transparent; background: none; cursor: pointer; }
+.navtabs .ptab[aria-selected="true"] { border-color: var(--line); border-bottom-color: var(--panel); color: var(--text); font-weight: 600; }
+.navpop .book { margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.navpop .book + .book { border-top: 1px solid var(--line-soft); }
+.navpop .book > summary { padding: 10px 8px; }
+.navpop .secs, .navpop .portions { padding: 0 0 6px; }
+.navpop .tbook.cur > summary, .navpop .portion.cur { background: var(--accent-soft); }
+.navpop .tbook > summary { grid-template-columns: 1fr auto 80px; }
+.navpop .portion { grid-template-columns: minmax(0, 1fr); }
+/* Phones: the pop-ups hang the width of the screen below the header. */
+@media (max-width: 640px) {
+  .navwrap { position: static; }
+  .navpop, .navpop.chapters {
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--rhead-h, 50px) + 4px);
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100vh - var(--topbar-h) - var(--rhead-h, 50px) - 24px);
+  }
 }
 .toggles { display: flex; gap: 8px; align-items: center; }
 
@@ -974,9 +1031,8 @@ a.crumb:hover { color: var(--accent); }
    begin. They run in rows, one for each stretch between the sections both
    share (reader.js), so each row starts level and the taller column sets
    its height. Narrow, a row's Hebrew goes above the other text. The chosen
-   verse's notes rise in a sheet from the bottom. */
+   verse's notes are in a pane along the bottom. */
 .grid.parmode { padding-top: 8px; }
-.grid.parmode.chosen { padding-bottom: 46vh; }
 .grid.parmode .row.passage { max-width: none; margin: 0; }
 .par { max-width: 1500px; margin: 0 auto; padding: 18px 0 28px; }
 .par-row {
@@ -995,22 +1051,101 @@ a.crumb:hover { color: var(--accent); }
 .sc-n.en { font-family: var(--font-ui); font-size: 12px; font-variant-numeric: tabular-nums; }
 .grid.parmode .row.general { max-width: 1500px; margin: 0 auto; }
 
-.grid.parmode > .vpanel.empty { display: none; }
-.grid.parmode > .row.law.vpanel {
+/* The notes pane: fixed along the bottom, the full width. Its bar is always
+   there; open, it is as high as reader.js sets it (dragged by its top edge),
+   the notes scrolling inside. body.paned leaves room for it at the foot of
+   the page, --pane-space being its height. */
+.screen .grid.parmode > .vpanel.pane {
   position: fixed;
   top: auto;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 18;
-  max-width: 860px;
-  max-height: 44vh;
-  margin: 0 auto;
-  padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
-  border-radius: var(--radius) var(--radius) 0 0;
-  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  overflow: hidden;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
 }
-.grid.parmode > .vpanel .ann .cell:first-child { margin-top: 4px; }
+.pane-grip { display: none; }
+.pane.open-pane .pane-grip {
+  display: block;
+  flex: none;
+  position: relative;
+  height: 12px;
+  margin-bottom: -6px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.pane-grip::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 40px;
+  height: 4px;
+  margin-left: -20px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.pane-grip:hover::after, .pane.dragging .pane-grip::after { background: var(--faint); }
+.pane-grip:focus-visible { outline: none; }
+.pane-grip:focus-visible::after { background: var(--accent); }
+.pane.dragging { user-select: none; }
+.pane-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px 12px;
+  flex: none;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 6px 16px 6px 10px;
+  cursor: pointer;
+}
+.pane.open-pane .pane-bar { border-bottom: 1px solid var(--line-soft); }
+.pane-toggle { flex: none; width: 32px; height: 32px; min-width: 32px; }
+.pane-bar .vp-ref { flex-direction: row; align-items: baseline; gap: 10px; font-size: 16px; min-width: 0; }
+.pane-bar .vp-he { font-size: 15px; }
+.pane-hint { color: var(--faint); font-size: 14px; }
+.pane-count { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); font-size: 13px; }
+.pane-count.none { color: var(--faint); }
+.pane-bar .vp-tools { margin-inline-start: auto; }
+.pane-body { display: none; }
+.pane.open-pane .pane-body {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 4px 20px 16px 52px;
+}
+.pane .notelist { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.pane .ann .cell:first-child, .pane .vp-hint, .pane .vp-none { margin-top: 10px; }
+body.paned .screen.on { padding-bottom: calc(var(--pane-space, 48px) + 16px); }
+body.paned .toast { bottom: calc(var(--pane-space, 48px) + 16px); }
+@media (max-width: 640px) {
+  .pane-bar { gap: 8px; padding: 4px 4px 4px 4px; }
+  .pane-bar .vp-ref { flex: none; font-size: 15px; }
+  .pane-bar .vp-he { display: none; }
+  .pane-bar .vp-tools .iconbtn { width: 28px; min-width: 28px; }
+  .pane.open-pane .pane-body { padding: 4px 14px 14px; }
+  .pane-grip { height: 18px; }
+  .pane.open-pane .pane-grip { height: 18px; margin-bottom: -10px; }
+  .pane-grip::after { top: 6px; }
+}
+
 
 @media (max-width: 760px) {
   .par { padding-top: 6px; }
@@ -1040,10 +1175,9 @@ div.note p { margin: 0 0 0.5em; }
   .cell.he { font-size: 20px; }
   .cell.tg { font-size: 18px; }
 }
-/* Phones: chapter and buttons on one line; the footer keeps prev/next. */
+/* Phones: the names and arrows above the buttons. */
 @media (max-width: 480px) {
-  .rhead .pager .pg { display: none; }
-  .rhead .chsel { max-width: 34vw; }
+  .rhead .navbtn { max-width: 34vw; }
   .rbar { gap: 6px; }
   .toggles { gap: 6px; }
   .seg { width: 30px; }

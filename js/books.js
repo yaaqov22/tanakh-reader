@@ -49,21 +49,24 @@
     return d;
   }
 
+  /* Torah, Prophets, Writings, each with its books; only division `open`,
+     if one is named. */
+  function books(ix, open) {
+    return ix.books.map(function (b) {
+      const d = UI.el('details.book', { open: !open || open === b.id }, [
+        UI.el('summary', [
+          UI.el('span.book-en', { text: b.en }),
+          UI.el('span.book-he', { lang: 'he', dir: 'rtl', text: b.he })
+        ]),
+        UI.el('div.secs', b.sections.map(bookEntry))
+      ]);
+      d.id = 'book-' + b.id;
+      return d;
+    });
+  }
+
   function renderBooks(host, ix, open) {
-    UI.fill(host, [
-      head('books'),
-      ix.books.map(function (b) {
-        const d = UI.el('details.book', { open: !open || open === b.id }, [
-          UI.el('summary', [
-            UI.el('span.book-en', { text: b.en }),
-            UI.el('span.book-he', { lang: 'he', dir: 'rtl', text: b.he })
-          ]),
-          UI.el('div.secs', b.sections.map(bookEntry))
-        ]);
-        d.id = 'book-' + b.id;
-        return d;
-      })
-    ]);
+    UI.fill(host, [head('books'), books(ix, open)]);
     if (open) {
       const el = document.getElementById('book-' + open);
       if (el) el.scrollIntoView({ block: 'start' });
@@ -123,24 +126,35 @@
     ]);
   }
 
-  function renderParashot(host, ix) {
-    const groups = ['01', '02', '03', '04', '05'].map(function (id) {
+  /* The parashot under their books of the Torah. */
+  function parashot(ix) {
+    return ['01', '02', '03', '04', '05'].map(function (id) {
       const b = ix.byId.get(id);
       return UI.el('details.book', { open: true }, [
         UI.el('summary', [UI.el('span.book-en', { text: b.en }), UI.el('span.book-he', { lang: 'he', dir: 'rtl', text: b.he })]),
         UI.el('div.portions', ix.parashot.filter(function (p) { return p.book === id; }).map(function (p) { return portionEntry(ix, p); }))
       ]);
     });
+  }
+
+  function holidays(ix) {
+    return UI.el('div.portions.solo', ix.readings.map(function (p) { return portionEntry(ix, p); }));
+  }
+
+  function renderParashot(host, ix) {
     UI.fill(host, [head('parashot'),
       UI.el('p.page-note', { text: 'The weekly portions as Mechon Mamre\'s Tiqqun Qore\'im divides them, with each week\'s haftarah.' }),
-      groups]);
+      parashot(ix)]);
   }
 
   function renderHolidays(host, ix) {
     UI.fill(host, [head('holidays'),
       UI.el('p.page-note', { text: 'Readings for the holidays and special Shabbatot. On the holidays the maftir is usually read from a second scroll.' }),
-      UI.el('div.portions.solo', ix.readings.map(function (p) { return portionEntry(ix, p); }))]);
+      holidays(ix)]);
   }
+
+  /* The same lists, for the reader's header to go elsewhere from. */
+  TR.contents = { books: books, parashot: parashot, holidays: holidays };
 
   function route(id, draw) {
     UI.route(id, {
