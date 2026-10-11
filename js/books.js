@@ -126,19 +126,26 @@
     ]);
   }
 
-  /* The parashot under their books of the Torah. */
+  /* The parashot under their books of the Torah; at the end of a book's,
+     those of them read together in some years. */
   function parashot(ix) {
     return ['01', '02', '03', '04', '05'].map(function (id) {
       const b = ix.byId.get(id);
+      const doubles = (ix.doubles || []).filter(function (p) { return p.book === id; });
       return UI.el('details.book', { open: true }, [
         UI.el('summary', [UI.el('span.book-en', { text: b.en }), UI.el('span.book-he', { lang: 'he', dir: 'rtl', text: b.he })]),
-        UI.el('div.portions', ix.parashot.filter(function (p) { return p.book === id; }).map(function (p) { return portionEntry(ix, p); }))
+        UI.el('div.portions', ix.parashot.filter(function (p) { return p.book === id; }).map(function (p) { return portionEntry(ix, p); })),
+        doubles.length ? UI.el('div.portions.joined', [UI.el('div.portions-head', { text: 'Read together' })]
+          .concat(doubles.map(function (p) { return portionEntry(ix, p); }))) : null
       ]);
     });
   }
 
+  /* The holidays' readings, in a card as the books' and parashot's are. */
   function holidays(ix) {
-    return UI.el('div.portions.solo', ix.readings.map(function (p) { return portionEntry(ix, p); }));
+    return UI.el('div.book.plain', [
+      UI.el('div.portions', ix.readings.map(function (p) { return portionEntry(ix, p); }))
+    ]);
   }
 
   function renderParashot(host, ix) {

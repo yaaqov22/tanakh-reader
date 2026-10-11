@@ -1,0 +1,43 @@
+{
+  "about": [
+    "The parashot read together in some years, as portions of their own: \"parts\" are the two parashot's ids in index.json, and \"haftarah\" the one whose haftarah is read.",
+    "Each runs from the first part's beginning to the second's end; its aliyot are in aliyot.json under its id. See README.md."
+  ],
+  "doubles": [
+    {
+      "id": "0210-0211",
+      "parts": ["0210", "0211"],
+      "haftarah": "0211"
+    },
+    {
+      "id": "0304-0305",
+      "parts": ["0304", "0305"],
+      "haftarah": "0305"
+    },
+    {
+      "id": "0306-0307",
+      "parts": ["0306", "0307"],
+      "haftarah": "0307"
+    },
+    {
+      "id": "0309-0310",
+      "parts": ["0309", "0310"],
+      "haftarah": "0310"
+    },
+    {
+      "id": "0406-0407",
+      "parts": ["0406", "0407"],
+      "haftarah": "0407"
+    },
+    {
+      "id": "0409-0410",
+      "parts": ["0409", "0410"],
+      "haftarah": "0410"
+    },
+    {
+      "id": "0508-0509",
+      "parts": ["0508", "0509"],
+      "haftarah": "0508"
+    }
+  ]
+}

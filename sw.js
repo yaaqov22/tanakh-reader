@@ -6,7 +6,7 @@
    2. The entry point is network-first, so a deployed change is seen.
    3. A new worker never reloads the page; main.js toasts instead. */
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v8';
 const CACHE = 'tanakh-reader-' + CACHE_VERSION;
 
 /* Must match the script tags in index.html. */
@@ -40,7 +40,9 @@ const SHELL = [
   'js/branches.js',
   'js/settings.js',
   'js/main.js',
-  'icons/icon.svg'
+  'icons/icon.svg',
+  'data/aliyot.json',
+  'data/doubles.json'
 ];
 
 self.addEventListener('install', (e) => {

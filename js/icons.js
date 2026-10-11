@@ -56,6 +56,13 @@
     note: function () {
       return svg('<path d="M5 4.5h14v9.5l-5 5.5H5z"/><path d="M14 19.5V14h5"/><path d="M8.5 8.5h7M8.5 11.5h4"/>');
     },
+    /* The same, with a plus in place of the lines: adding one. */
+    commentAdd: function () {
+      return svg('<path d="M4.5 5.5h15v10h-9l-4.5 4v-4h-1.5z"/><path d="M12 7.5v5.5M9.25 10.25h5.5"/>');
+    },
+    noteAdd: function () {
+      return svg('<path d="M5 4.5h14v9.5l-5 5.5H5z"/><path d="M14 19.5V14h5"/><path d="M10.5 6.5v6M7.5 9.5h6"/>');
+    },
     /* MT links: a chain's two links. */
     link: function () {
       return svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>');
@@ -82,9 +89,6 @@
     },
     parallel: function () {
       return svg('<path d="M12 3.5v17"/><path d="M3.5 6.5h5.5M3.5 10h5.5M3.5 13.5h3.5M3.5 17h5.5M15 6.5h5.5M15 10h5.5M15 13.5h5.5M17 17h3.5"/>');
-    },
-    scroll: function () {
-      return svg('<path d="M4.5 3.5v17M19.5 3.5v17"/><path d="M8 7h8M8 10.5h8M8 14h5M8 17.5h8"/>');
     },
     chevron: function () { return svg('<path d="m7 10 5 5 5-5"/>'); },
     check: function () { return svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'); },

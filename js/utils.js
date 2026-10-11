@@ -53,15 +53,17 @@
     token: '',
     localBase: '../tanakh/',
     theme: 'system',
-    cols: { he: true, tg: false, en: true, co: false, notes: false, mt: false },
     palette: 'sepia',   // the colour scheme: sepia, blue, gray or mono (black and white)
     marks: true,    // mark what the branch changed compared with baseBranch
     heMode: 'teamim',   // how the Hebrew shows: plain, pointed, punct (Mechon Mamre's punctuation) or teamim
-    layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse), 'parallel' (the Hebrew and one text, each set as in a scroll, side by side) or 'scroll' (the Hebrew alone, set as in a scroll)
-    beside: 'en',       // in the parallel layout, the text beside the Hebrew: 'en' or 'tg'
-    paneOpen: true,     // side by side, whether the notes pane at the bottom is open
-    paneHeight: 0,      // …and its height in pixels, as dragged (0: a third of the screen)
-    editing: false,
+    layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse) or 'parallel' (the Hebrew and one text or none, each set as in a scroll, side by side)
+    beside: 'en',       // the text beside the Hebrew, in either layout: 'en', 'tg' or 'none' (the Hebrew alone)
+    heSide: 'right',    // which side of the page the Hebrew is on, in either layout: 'left' or 'right'
+    readingDay: 'weekday',  // a holiday's aliyot as divided on a 'weekday' or on 'shabbat'
+    paneOpen: true,     // whether the notes pane is open
+    panePos: 'bottom',  // …where it is: 'bottom', 'left' or 'right'
+    paneHeight: 0,      // …its height at the bottom in pixels, as dragged (0: a third of the screen)
+    paneWidth: 0,       // …its width at a side in pixels, as dragged (0: 440, or less on a smaller screen)
     name: '',       // signs review notes; filled from the token's login when checked
     login: '',      // the token's GitHub login, once known: names the submit branch
     lastSubmit: null  // { number, url, branch, … } of the last pull request submitted to
@@ -71,8 +73,6 @@
 
   TR.device = {
     get: function (k) {
-      /* A column added since the setting was saved shows, as it would have by default. */
-      if (k === 'cols') return Object.assign({}, DEFAULTS.cols, device.cols);
       return device[k];
     },
     all: function () { return Object.assign({}, device); },

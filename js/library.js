@@ -17,6 +17,7 @@
 
   const F = TR.format;
   let indexP = null;
+  let aliyotP = null;
   const sections = new Map();   // id → Promise<section> (see section())
 
   function noIndex() {
@@ -80,6 +81,18 @@
     return !!doc && doc.chapters.some(function (ch) { return ch.notes && ch.notes.length; });
   }
 
+  /* A file of the reader's own (data/), not the texts': its JSON, or null
+     if it can't be had. */
+  function appJson(path) {
+    return fetch(path).then(function (r) {
+      if (!r.ok) throw new Error(path + ': ' + r.status);
+      return r.json();
+    }).catch(function (e) {
+      console.warn('[data]', e);
+      return null;
+    });
+  }
+
   const lib = TR.lib = {
     LAYERS: LAYERS,
 
@@ -90,12 +103,16 @@
                        { id, en, he, book: division, chapters: [{ key, n, laws }] }
          byId          id → book
          parashot[]    { id, he, en, book, from, to, haftarah: { ash, sef? } }
+         doubles[]     the parashot read together in some years, each a
+                       parashah as above, with parts: [first, second]
+                       (data/doubles.json, which ships with the reader)
          readings[]    { id, he, en, torah: [[range]], haftarah?: { ash?, sef? } }
-         portions      id → parashah or reading
+         portions      id → parashah, double or reading
        A range is { book, from: "c:v", to: "c:v" }. */
     index: function () {
       if (!indexP) {
-        indexP = TR.source.json('index.json').then(function (ix) {
+        indexP = Promise.all([TR.source.json('index.json'), appJson('data/doubles.json')]).then(function (got) {
+          const ix = got[0];
           if (!ix || !ix.parashot) throw noIndex();
           const divisions = DIVISIONS.map(function (d) { return Object.assign({ sections: [] }, d); });
           ix.order = ix.books.map(function (b) {
@@ -109,12 +126,58 @@
           });
           ix.books = divisions;
           ix.byId = new Map(ix.order.map(function (s) { return [s.id, s]; }));
-          ix.portions = new Map(ix.parashot.concat(ix.readings).map(function (p) { return [p.id, p]; }));
+          /* A double runs from its first part's beginning to its second's
+             end, and reads one part's haftarah; its name is theirs joined. */
+          const byPid = new Map(ix.parashot.map(function (p) { return [p.id, p]; }));
+          ix.doubles = ((got[1] && got[1].doubles) || []).map(function (d) {
+            const a = byPid.get(d.parts[0]), b = byPid.get(d.parts[1]), h = byPid.get(d.haftarah);
+            if (!a || !b || !h || a.book !== b.book) return null;
+            return { id: d.id, he: a.he + '־' + b.he, en: a.en + '–' + b.en, book: a.book, from: a.from, to: b.to,
+              haftarah: h.haftarah, parts: [a, b] };
+          }).filter(Boolean);
+          ix.portions = new Map(ix.parashot.concat(ix.doubles, ix.readings).map(function (p) { return [p.id, p]; }));
           return ix;
         });
         indexP.catch(function () { indexP = null; });
       }
       return indexP;
+    },
+
+    /* Where each portion's aliyot begin (data/aliyot.json, which ships with
+       the reader, not with the texts): → portion id →
+         { aliyot: [{ n, sec, key }],   n 1–7 or 'M' (the maftir), in order
+           shabbat: [...] | null,       a holiday's division on Shabbat, where it has its own
+           on: 'weekday'|'shabbat'|null }  a holiday that never or always falls on Shabbat
+       A portion with none listed has no entry; if the file can't be had,
+       none has. */
+    aliyot: function () {
+      if (!aliyotP) {
+        aliyotP = Promise.all([lib.index(), appJson('data/aliyot.json')]).then(function (x) {
+          const ix = x[0], data = x[1];
+          if (!data) throw new Error('data/aliyot.json could not be read');
+          const bookId = new Map(ix.order.map(function (s) { return [s.en, s.id]; }));
+          const at = function (ref) {
+            const i = ref.lastIndexOf(' ');
+            const sec = bookId.get(ref.slice(0, i));
+            return sec ? { sec: sec, key: ref.slice(i + 1) } : null;
+          };
+          const list = function (d) {
+            const out = (d.aliyot || []).map(function (ref, i) { return Object.assign({ n: i + 1 }, at(ref)); });
+            if (d.maftir) out.push(Object.assign({ n: 'M' }, at(d.maftir)));
+            return out.filter(function (a) { return a.sec; });
+          };
+          const out = new Map();
+          Object.keys(data.portions || {}).forEach(function (id) {
+            const p = data.portions[id];
+            out.set(id, { aliyot: list(p), shabbat: p.shabbat ? list(p.shabbat) : null, on: p.on || null });
+          });
+          return out;
+        }, function (e) {
+          console.warn('[aliyot]', e);
+          return new Map();
+        });
+      }
+      return aliyotP;
     },
 
     /* → { id, he, tp, onq, onqk, en,     the documents as they stand, drafts applied
@@ -272,6 +335,7 @@
 
   TR.bus.on('source', function () {
     indexP = null;
+    aliyotP = null;
     sections.clear();
   });
 
