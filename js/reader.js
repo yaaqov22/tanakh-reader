@@ -1731,9 +1731,12 @@
     }
     grid.appendChild(s.panel);
     /* The pane keeps its verse across repaints of the page; a verse linked
-       to opens in it. */
+       to opens in it when it is arrived at, not at every repaint after (a
+       note saved, a setting changed). */
     const target = page.target && s.order.find(function (v) { return v.id === page.target.id; });
-    if (target) chosen = { page: page.key, sec: target.sec, key: target.key };
+    const arrived = host.getAttribute('data-hash') !== location.hash;
+    host.setAttribute('data-hash', location.hash);
+    if (target && arrived) chosen = { page: page.key, sec: target.sec, key: target.key };
     else if (!chosen || chosen.page !== page.key || !s.byKey.has(chosen.sec + ' ' + chosen.key)) chosen = null;
     applyCols(grid);
 
@@ -1780,7 +1783,7 @@
     /* A new chapter or portion starts at its top; a repaint of the same one
        (a column toggled, a note saved) stays where it was. */
     const where = page.docTitle;
-    if (host.getAttribute('data-at') !== where && !page.target) window.scrollTo(0, 0);
+    if (host.getAttribute('data-at') !== where && !(page.target && arrived)) window.scrollTo(0, 0);
     host.setAttribute('data-at', where);
 
     if (page.target) {
@@ -1791,7 +1794,7 @@
           x.classList.add('target');
           if (page.target.q && TR.search) TR.search.highlight(x, page.target.q, page.target.whole);
         });
-        el.scrollIntoView({ block: 'center' });
+        if (arrived) el.scrollIntoView({ block: 'center' });
       }
     }
   }
