@@ -1,0 +1,13 @@
+{
+  "rashbam": {
+    "en": "Rashbam",
+    "he": "רשב\"ם",
+    "full": "Rabbi Samuel ben Meir (c. 1085–1158)",
+    "sefaria": "Rashbam on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["daat", "Wikisource Mikraot Gedolot"],
+      "en": ["Eliyahu Munk, HaChut Hameshulash", "Sefaria Community Translation"]
+    }
+  }
+}

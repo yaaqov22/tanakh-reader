@@ -81,6 +81,23 @@
     return !!doc && doc.chapters.some(function (ch) { return ch.notes && ch.notes.length; });
   }
 
+  /* Commentators/index.json's list, keeping only what can be read: an id
+     that names no other layer, and each book's languages that the reader
+     knows. */
+  function commentators(data) {
+    const taken = new Set(LAYERS.concat(['tg']));
+    return ((data && data.commentators) || []).filter(function (c) {
+      return c && /^[a-z][a-z0-9]*$/.test(c.id) && !taken.has(c.id) && c.books;
+    }).map(function (c) {
+      const books = {};
+      Object.keys(c.books).forEach(function (id) {
+        const langs = (c.books[id] || []).filter(function (l) { return F.CM_LANGS.indexOf(l) >= 0; });
+        if (langs.length) books[id] = langs;
+      });
+      return { id: c.id, en: c.en || c.id, he: c.he || '', full: c.full || '', books: books };
+    });
+  }
+
   /* A file of the reader's own (data/), not the texts': its JSON, or null
      if it can't be had. */
   function appJson(path) {
@@ -96,6 +113,9 @@
   const lib = TR.lib = {
     LAYERS: LAYERS,
 
+    /* The commentators, as the index last loaded lists them (index()). */
+    commentators: [],
+
     /* index.json, shaped for the screens:
          books[]       the three divisions, Torah, Nevi'im, Ketuvim, each
                        { id, en, he, sections: [book] } (a "section" is a book)
@@ -108,12 +128,20 @@
                        (data/doubles.json, which ships with the reader)
          readings[]    { id, he, en, torah: [[range]], haftarah?: { ash?, sef? } }
          portions      id → parashah, double or reading
+         commentators[] the classical commentaries (Commentators/index.json,
+                       none if the texts have no such file), in its order,
+                       each { id, en, he, full, books: { book id: [lang] } }
        A range is { book, from: "c:v", to: "c:v" }. */
     index: function () {
       if (!indexP) {
-        indexP = Promise.all([TR.source.json('index.json'), appJson('data/doubles.json')]).then(function (got) {
+        const cms = TR.source.json('Commentators/index.json').catch(function (e) {
+          console.warn('[commentators]', e);
+          return null;
+        });
+        indexP = Promise.all([TR.source.json('index.json'), appJson('data/doubles.json'), cms]).then(function (got) {
           const ix = got[0];
           if (!ix || !ix.parashot) throw noIndex();
+          ix.commentators = lib.commentators = commentators(got[2]);
           const divisions = DIVISIONS.map(function (d) { return Object.assign({ sections: [] }, d); });
           ix.order = ix.books.map(function (b) {
             const div = divisions.find(function (d) { return d.id === b.section; });
@@ -181,7 +209,10 @@
     },
 
     /* → { id, he, tp, onq, onqk, en,     the documents as they stand, drafts applied
-           co, notes,                     (only commentary and notes are ever edited)
+           co, notes, mt,                 (only commentary and notes are ever edited)
+           'rashbam-he', 'rashbam-en' …   the commentators' (F.cmLayer), for the
+                                          languages the index lists for this book
+           cms: [layer],                  …which those are
            raw: { layer: text|null },     the files as the source has them
            base: { layer: doc },          what each draft is an edit of
            drafts: { layer: record },     the drafts themselves
@@ -189,14 +220,13 @@
        Outside the Torah there is no Targum, and its files aren't asked for. */
     section: function (id) {
       if (!sections.has(id)) {
-        const p = F.paths(id);
         const parse = function (s, layer) { return s === null ? null : F.parse(s, layer); };
         const sec = { id: id, raw: {}, base: {}, drafts: {}, stale: {} };
         const load = function (layer) {
           if (!torah(id) && TARGUM.indexOf(layer) >= 0) { sec.raw[layer] = null; sec[layer] = null; return null; }
-          return TR.source.text(p[layer]).then(function (s) {
+          return TR.source.text(F.pathOf(id, layer)).then(function (s) {
             sec.raw[layer] = s;
-            const d = TR.drafts.get(p[layer]);
+            const d = TR.drafts.get(F.pathOf(id, layer));
             if (!d) { sec[layer] = parse(s, layer); return; }
             sec[layer] = parse(d.text, layer);
             sec.base[layer] = parse(d.base, layer);
@@ -204,8 +234,19 @@
             if (d.base !== s) sec.stale[layer] = true;
           });
         };
-        const sp = TR.drafts.ready()
-          .then(function () { return Promise.all(LAYERS.map(load)); })
+        /* The commentators' files are asked for only where the index lists them. */
+        const cms = lib.index().then(function (ix) {
+          const out = [];
+          ix.commentators.forEach(function (c) {
+            (c.books[id] || []).forEach(function (lang) { out.push(F.cmLayer(c.id, lang)); });
+          });
+          return out;
+        }, function () { return []; });
+        const sp = Promise.all([TR.drafts.ready(), cms])
+          .then(function (r) {
+            sec.cms = r[1];
+            return Promise.all(LAYERS.concat(sec.cms).map(load));
+          })
           .then(function () { return sec; });
         sections.set(id, sp);
         sp.catch(function () { sections.delete(id); });
@@ -230,7 +271,7 @@
        change found it — see editFrom(). */
     edit: function (id, layer, fn, from) {
       const run = function () { return lib.section(id).then(function (sec) {
-        const path = F.paths(id)[layer];
+        const path = F.pathOf(id, layer);
         const had = sec.drafts[layer];
         if (!had && from !== undefined && from !== sec.raw[layer]) return editFrom(sec, layer, path, fn, from);
         const r = fn(sec[layer], sec);
@@ -272,7 +313,7 @@
 
     /* Drop a layer's draft; the section is read afresh next time. */
     discard: function (id, layer) {
-      return TR.drafts.remove(F.paths(id)[layer]).then(function () { sections.delete(id); });
+      return TR.drafts.remove(F.pathOf(id, layer)).then(function () { sections.delete(id); });
     },
 
     /* The chapters of a section in reading order, merging Hebrew and English

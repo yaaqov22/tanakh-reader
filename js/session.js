@@ -401,7 +401,7 @@
         const files = info ? Object.keys(info.files) : [];
         const body = files.map(function (p) {
           const f = F.classify(p);
-          return TR.submit.LAYER_NAME[f.layer] + ' ' + f.id;
+          return (TR.submit.LAYER_NAME[f.layer] || f.layer) + ' ' + f.id;
         }).sort().join('\n');
         return TR.submit.propose({ branch: d.branch, base: d.baseBranch, title: title, body: body }).then(function (pr) {
           TR.device.set({ lastSubmit: {

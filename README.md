@@ -1,6 +1,6 @@
 # Tanakh Reader
 
-A reader for the Tanakh, with the Hebrew, Targum Onqelos and English side by side, one row per verse, and a place under every verse for commentary and review notes, and the places the Mishneh Torah quotes it. It exists to write a **Commentary on the Tanakh for Noahides**.
+A reader for the Tanakh, with the Hebrew, Targum Onqelos and English side by side, one row per verse, and a place under every verse for commentary and review notes, the classical commentators on it, and the places the Mishneh Torah quotes it. It exists to write a **Commentary on the Tanakh for Noahides**.
 
 It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares its design: a static, offline-first web app with no build step, reading the texts from a GitHub repository ([tanakh](https://github.com/yaaqov22/tanakh)) with each user's own token, keeping edits as drafts on the device and submitting them as pull requests.
 
@@ -13,9 +13,12 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
 | Review notes | yours | Editable, and signed with your name and the date. |
+| Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries, so far Rashbam on the Torah, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side). Generated (`tools/commentators.mjs`), not edited. |
 | MT links | the [Mishneh Torah](https://github.com/yaaqov22/mishneh-torah) | Every halakhah that quotes the verse: its name, chapter and number, linked to it in [MT Reader](https://yaaqov22.github.io/mt-reader/), then its text. Generated (`tools/mt-links.mjs`), not edited. |
 
 The texts themselves are read-only. Only the commentary and review notes are edited.
+
+In the notes pane a verse's notes come in this order: commentary, review notes, each commentator, MT links. Each block folds away from its heading, and stays folded whatever verse is chosen until unfolded. The pane's bar counts each kind of note under its icon, the commentators all together under one (an open book).
 
 ### By chapter or by parashah
 
@@ -75,6 +78,20 @@ Copy `out/data/` over the `tanakh` checkout to update it. Commentary and Notes a
 
 It reads the sibling checkouts `../mishneh-torah` (the texts) and `../mt-reader` (its `js/refs.js`, which finds the Tanakh references in them) and writes `../tanakh/MT/`, replacing what is there. Every halakhah's citations are read from its Hebrew, "(דברים ו,ד)", which numbers the verses as Mechon Mamre does; from its English, "(Deuteronomy 6:4)", only where the Hebrew cites nothing (the English sometimes numbers Exodus 20 differently). A range is linked on its first verse, and a chapter cited alone on its verse 1. The quoted text is the English, or the Hebrew where the halakhah isn't translated yet.
 
+## The commentators: `tools/commentators.mjs`
+
+```bash
+"$NODE" tools/commentators.mjs --fetch
+```
+
+`tools/commentators.json` lists them. Each has its names, its Sefaria title (`"Rashbam on {book}"`), the books it covers, and for each language the Sefaria versions to take, in order of preference (a part of the version's title is enough: `"daat"`). A verse's comments come from the first version that has any on it, so a later one only fills an earlier one's gaps: Rashbam's Hebrew is Da'at's (public domain), with the four verses of Genesis it lacks from Wikisource's Mikraot Gedolot; his English is Eliyahu Munk's (CC-BY), with the 44 verses it lacks from Sefaria's community translation (CC0).
+
+`--fetch` downloads the versions into the texts' `Original/Sefaria/`; without it the tool rebuilds from what is there. It writes `../tanakh/Commentators/<id>/{book}-he.md` and `-en.md`, and `Commentators/index.json` (what the reader lists: each commentator, its books and languages, and its sources) and `README.md` (the sources and their licences), replacing what is there for the commentators it builds (`--only rashbam` builds one).
+
+Sefaria numbers the verses as most Bibles do. The tool renumbers them to Mechon Mamre's, which differ in Exodus 20 and Deuteronomy 5 (the first two commandments one verse), Joshua 21 (no verses 36–37) and Jeremiah 30–31 (Sefaria's 31:1 is 30:25). Each comment's HTML becomes Markdown, and the words it comments on, where they stand plainly at its start, are bolded.
+
+To add a commentator, add it to `tools/commentators.json` (Sefaria's versions of a text are listed at `https://www.sefaria.org/api/texts/versions/<title>`) and run the tool with `--fetch --only <id>`. The reader needs nothing more.
+
 ### File format
 
 `js/format.js` is the single parser and writer, shared by the app and the tools. A file is canonical exactly when `write(parse(file)) === file`.
@@ -87,6 +104,9 @@ Translation/01-en.md   # Genesis / ## Genesis, Chapter 1 / 1:1 In the beginning 
 Commentary/01-co.md    [^1.1.1]: text   (chapter.verse.n; continuation paragraphs tab-indented)
 Notes/01-notes.md      the same, for review notes
 MT/01-mt.md            the same, for MT links: [^6.4.2]: ***[Laws of … 1:7](https://…/mt-reader/#/read/1-1/1/7)*** - text
+Commentators/rashbam/01-he.md   the same, for a commentator: [^1.4.2]: **ויבדל א-להים בין האור ובין החשך** - …
+Commentators/rashbam/01-en.md   …in English
+Commentators/index.json         the commentators, their books and languages
 ```
 
 Book ids are Mechon Mamre's: `01`–`05` are the Torah, `08a`/`08b` are Samuel, `25a`/`25b` are Chronicles (first among the Writings), and `35a`/`35b` are Ezra and Nehemiah.
@@ -127,10 +147,11 @@ The same layout as MT Reader. Every script attaches itself to `window.TR`.
 | `js/scroll.js` | The scroll layout: the text cut into paragraphs, song lines and blank lines by its section marks, and the verse numbers' margin |
 | `js/books.js` | Home screens: Books, Parashot, Holidays |
 | `js/markdown.js` | Inline Markdown for notes, and verse rendering for the interlinear layout (section marks as written, ktiv/qere, large letters) |
-| `js/search.js` | Search over Hebrew, Targum, English and notes, and the MT links when their chip is on (off by default); matches with or without vowels |
+| `js/search.js` | Search over Hebrew, Targum, English and notes, and the commentators and MT links when their chips are on (off by default); matches with or without vowels |
 | `js/edit.js`, `merge.js`, `submit.js`, `changes.js`, `review.js`, `branches.js`, `session.js` | Drafts, merging, pull requests, reviewing branches, live sessions (from MT Reader) |
 | `tools/import.mjs` | Builds the `tanakh` repo from the zips |
 | `tools/mt-links.mjs` | Builds its `MT/` links from the Mishneh Torah |
+| `tools/commentators.mjs` | Builds its `Commentators/` from Sefaria, as `tools/commentators.json` lists them |
 
 ## Still to do
 

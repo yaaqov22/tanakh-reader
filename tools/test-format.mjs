@@ -123,6 +123,14 @@ test('paths and classify agree', () => {
   }
   assert.equal(F.classify('Original/ct005.zip'), null);
   assert.equal(F.classify('Hebrew/01-onq.md'), null, 'a layer in the wrong folder');
+  for (const layer of ['rashbam-he', 'rashbam-en']) {
+    assert.deepEqual(F.classify(F.pathOf('02', layer)), { id: '02', layer });
+    assert.ok(F.isNoteLayer(layer));
+  }
+  assert.equal(F.pathOf('02', 'rashbam-he'), 'Commentators/rashbam/02-he.md');
+  assert.equal(F.pathOf('02', 'mt'), F.paths('02').mt);
+  assert.equal(F.classify('Commentators/index.json'), null);
+  assert.equal(F.classify('Commentators/rashbam/02-tp.md'), null);
 });
 
 test('stripTeamim keeps vowels, maqaf and sof pasuq; stripAll keeps letters', () => {
@@ -147,6 +155,10 @@ if (fs.existsSync(opt.root)) {
   const walk = d => fs.readdirSync(path.join(opt.root, d)).map(f => `${d}/${f}`);
   const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Notes', 'MT']
     .filter(d => fs.existsSync(path.join(opt.root, d))).flatMap(walk);
+  /* The commentators: a folder each, beside their index.json and README. */
+  if (fs.existsSync(path.join(opt.root, 'Commentators'))) {
+    for (const d of walk('Commentators')) if (fs.statSync(path.join(opt.root, d)).isDirectory()) files.push(...walk(d));
+  }
   const docs = new Map();   // path → doc
 
   test(`every file is canonical: write(parse(x)) === x  [${files.length} files]`, () => {
@@ -187,11 +199,11 @@ if (fs.existsSync(opt.root)) {
     assert.deepEqual(bad, []);
   });
 
-  test('every commentary/notes/MT links label points at an existing verse', () => {
+  test('every commentary/notes/MT links/commentator label points at an existing verse', () => {
     const bad = [];
     for (const [f, doc] of docs) {
       const c = F.classify(f);
-      if (F.NOTE_LAYERS.indexOf(c.layer) < 0) continue;
+      if (!F.isNoteLayer(c.layer)) continue;
       const verses = new Set(F.units(docs.get(F.paths(c.id).he)).map(u => u.key));
       for (const ch of doc.chapters) for (const n of ch.notes) {
         if (n.c == null) { bad.push(`${f}: [^${n.label}] not c.v.n`); continue; }
@@ -249,6 +261,17 @@ if (fs.existsSync(opt.root)) {
       for (const r of [].concat(...(p.torah || [])).concat((p.haftarah && p.haftarah.ash) || [], (p.haftarah && p.haftarah.sef) || [])) check(p.en, r);
     }
     assert.deepEqual(bad, []);
+  });
+
+  test('Commentators/index.json lists exactly the commentators\' files', () => {
+    if (!fs.existsSync(path.join(opt.root, 'Commentators/index.json'))) return;
+    const listed = new Set();
+    for (const c of JSON.parse(read('Commentators/index.json')).commentators) {
+      for (const [id, langs] of Object.entries(c.books)) for (const l of langs) listed.add(F.pathOf(id, F.cmLayer(c.id, l)));
+    }
+    const there = new Set(files.filter(f => F.cmOf((F.classify(f) || {}).layer)));
+    assert.deepEqual([...listed].filter(f => !there.has(f)), [], 'listed but missing');
+    assert.deepEqual([...there].filter(f => !listed.has(f)), [], 'there but not listed');
   });
 } else {
   console.log(`(no corpus at ${opt.root}; run tools/import.mjs and pass --root for the corpus checks)`);
