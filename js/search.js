@@ -1,13 +1,15 @@
 /* Search across the whole Tanakh: Hebrew, Targum, English, commentary and
-   review notes, and, when asked for, the MT links.
+   review notes, and, when asked for, the commentators and the MT links.
 
-   #/search/<query>              everything but the MT links
+   #/search/<query>              everything but the commentators and MT links
    #/search/<query>/<opts>       opts: layers and books, e.g. "he.en~torah",
                                  "co~01~w" (Genesis, whole words),
-                                 "he.tg.en.co.mt~all" (the MT links too)
+                                 "he.tg.en.co.cm.mt~all" (the commentators
+                                 and the MT links too)
 
-   THE MT LINKS are off unless chosen: each one quotes a whole halakhah, so a
-   word would otherwise match every verse a halakhah using it cites.
+   THE COMMENTATORS AND THE MT LINKS are off unless chosen: an MT link quotes
+   a whole halakhah, so a word would otherwise match every verse a halakhah
+   using it cites, and the commentators quote the verses they comment on.
 
    THE CORPUS. The first search loads every book (through TR.lib, so from
    the offline cache when it can) and flattens it into entries — one per
@@ -137,7 +139,7 @@
       });
     });
 
-    ['co', 'notes', 'mt'].forEach(function (layer) {
+    ['co', 'notes', 'mt'].concat(sec.cms || []).forEach(function (layer) {
       const doc = sec[layer];
       if (!doc) return;
       add(out, meta, layer, 'intro', secHref, 'General remarks', [doc.title].concat(doc.front, doc.intro));
@@ -236,6 +238,9 @@
     if (!ts.length) return { terms: ts, places: [] };
     const want = opts.layers;
     const groupOf = { he: 'he', onq: 'tg', en: 'en', co: 'co', notes: 'co', mt: 'mt' };
+    lib.commentators.forEach(function (c) {
+      F.CM_LANGS.forEach(function (l) { groupOf[F.cmLayer(c.id, l)] = 'cm'; });
+    });
     const places = [];
     const byKey = new Map();
     for (const e of c.entries) {
@@ -352,12 +357,12 @@
 
   /* Options live in the hash so a search can be linked and survives reload:
      "he.tg.en.co~all" = layers ~ books [~ w for whole words]. With no
-     layers chosen, all but the MT links. */
-  const GROUPS = ['he', 'tg', 'en', 'co', 'mt'];
+     layers chosen, all but the commentators and the MT links. */
+  const GROUPS = ['he', 'tg', 'en', 'co', 'cm', 'mt'];
 
   function parseOpts(s) {
     const parts = String(s || '').split('~');
-    const layers = { he: false, tg: false, en: false, co: false, mt: false };
+    const layers = { he: false, tg: false, en: false, co: false, cm: false, mt: false };
     (parts[0] || 'he.tg.en.co').split('.').forEach(function (k) { if (k in layers) layers[k] = true; });
     if (!GROUPS.some(function (k) { return layers[k]; })) layers.he = layers.tg = layers.en = layers.co = true;
     return { layers: layers, book: parts[1] || 'all', whole: parts[2] === 'w' };
@@ -377,7 +382,16 @@
   /* -------------------------------------------------------------- screen */
 
   const PAGE = 100;
-  const LAYER_LABEL = { he: 'Hebrew', tg: 'Targum', en: 'English', co: 'Commentary', mt: 'MT links' };
+  const LAYER_LABEL = { he: 'Hebrew', tg: 'Targum', en: 'English', co: 'Commentary', cm: 'Commentators', mt: 'MT links' };
+
+  /* A hit's layer, as its result names it: "Note", "Rashbam". */
+  function hitLayer(e, g) {
+    if (e.layer === 'notes') return 'Note';
+    if (e.layer === 'mt') return 'MT link';
+    const c = F.cmOf(e.layer);
+    const cm = c && lib.commentators.find(function (x) { return x.id === c.cm; });
+    return cm ? cm.en : LAYER_LABEL[g];
+  }
   let seq = 0;
 
   function resultEl(p, ix, ts, opts, q) {
@@ -393,8 +407,9 @@
       ]),
       GROUPS.filter(function (g) { return p.hits[g]; }).map(function (g) {
         const e = p.hits[g];
-        return UI.el('div.hit-text.' + g + (g === 'tg' ? '.he' : ''), g === 'he' || g === 'tg' ? { lang: 'he', dir: 'rtl' } : null, [
-          UI.el('span.hit-layer', { text: e.layer === 'notes' ? 'Note' : e.layer === 'mt' ? 'MT link' : LAYER_LABEL[g] }),
+        const he = g === 'he' || g === 'tg' || (F.cmOf(e.layer) || {}).lang === 'he';
+        return UI.el('div.hit-text.' + g + (g === 'tg' ? '.he' : ''), he ? { lang: 'he', dir: 'rtl' } : null, [
+          UI.el('span.hit-layer', { text: hitLayer(e, g) }),
           snippet(e.plain, ts, opts.whole)
         ]);
       })
@@ -454,7 +469,8 @@
   function paintOpts(opts) {
     const layerChips = GROUPS.map(function (k) {
       return UI.el('button.chip', { type: 'button', 'aria-pressed': opts.layers[k] ? 'true' : 'false',
-        text: LAYER_LABEL[k], title: k === 'mt' ? 'Also search the MT links: the halakhot of the Mishneh Torah that quote each verse' : null,
+        text: LAYER_LABEL[k], title: k === 'mt' ? 'Also search the MT links: the halakhot of the Mishneh Torah that quote each verse'
+          : k === 'cm' ? 'Also search the commentators: the classical commentaries, in Hebrew and English' : null,
         onclick: function () { const l = {}; l[k] = !opts.layers[k]; go({ layers: l }); } });
     });
     const whole = UI.el('button.chip', { type: 'button', 'aria-pressed': opts.whole ? 'true' : 'false',

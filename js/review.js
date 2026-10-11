@@ -123,7 +123,7 @@
           if (!layers) return {};
           const out = {};
           return Promise.all(layers.map(function (layer) {
-            const f = info.files[F.paths(sec.id)[layer]];
+            const f = info.files[F.pathOf(sec.id, layer)];
             return (f.baseSha ? TR.source.blob(f.baseSha) : Promise.resolve(null)).then(function (was) {
               const now = sec.raw[layer];
               const parse = function (s) { return s === null ? null : F.parse(s, layer); };

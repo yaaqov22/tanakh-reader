@@ -14,8 +14,9 @@
    is set alone. Selecting a verse lights it in both.
 
    THE NOTES PANE. In either layout, the chosen verse's commentary, review
-   notes and MT links show in a pane along the bottom of the screen, or down
-   its left or right side (the Display menu's choice), to read and edit. A
+   notes, commentators and MT links show in a pane along the bottom of the
+   screen, or down its left or right side (the Display menu's choice), to
+   read and edit. A
    verse is chosen by its row or its counts interlinear, by its text or its
    number side by side. The pane opens and closes from its bar, and its inner
    edge drags to resize it; it stays as it was left.
@@ -65,8 +66,14 @@
    where it stands, in green, with its diff and an undo.
 
    NOTED VERSES. In either layout a verse's number is marked (noteState())
-   when it has commentary, review notes or MT links; how many of each is in
-   the pane's bar when it is chosen.
+   when it has commentary, review notes, a commentator's comments or MT
+   links; how many of each is in the pane's bar when it is chosen.
+
+   COMMENTATORS. The classical commentaries (Rashbam …, Commentators/ in the
+   texts, generated from Sefaria by tools/commentators.mjs) are notes layers
+   too, read-only, each in its Hebrew and its English: between the review
+   notes and the MT links, one block each, the two languages side by side.
+   Which commentators show, and in which language, are the Display menu's.
 
    ALIYOT. A parashah's or holiday's Torah page marks where each aliyah and
    the maftir begin (data/aliyot.json, lib.aliyot()), a badge in a strip down
@@ -100,16 +107,51 @@
   /* The notes layers under each verse. The MT links (the halakhot of the
      Mishneh Torah that quote the verse, tools/mt-links.mjs) show and hide as
      the others do, but are generated, and never edited here. */
-  const ANN = ['co', 'notes', 'mt'];
+  let ANN = ['co', 'notes', 'mt'];
   const ANN_TITLE = { co: 'Commentary', notes: 'Review notes', mt: 'MT links' };
   const ANN_ICON = { co: 'comment', notes: 'note', mt: 'link' };
-  const editable = function (layer) { return layer !== 'mt'; };
+  const editable = function (layer) { return layer === 'co' || layer === 'notes'; };
 
-  /* "3 comments", "1 MT link". */
+  /* The commentators on show (lib.index()'s, less those the Display menu
+     hides), id → { id, en, he, full, books }. Each is a notes layer named by
+     its id, after the review notes and before the MT links. */
+  const CM = new Map();
+  const isCm = function (layer) { return CM.has(layer); };
+
+  function syncCommentators() {
+    const hidden = TR.device.get('cmHidden') || [];
+    CM.clear();
+    lib.commentators.forEach(function (c) {
+      if (hidden.indexOf(c.id) < 0) CM.set(c.id, c);
+      LAYER_NAME[c.id] = ANN_TITLE[c.id] = c.en;
+    });
+    ANN = ['co', 'notes'].concat(Array.from(CM.keys()), ['mt']);
+  }
+
+  /* Which of a commentator's languages a book shows: the Display menu's
+     choice, of those it has; or, if it has none of them, what it has. */
+  function cmLangs(sec, id) {
+    const want = { he: ['he'], en: ['en'] }[TR.device.get('cmLang')] || F.CM_LANGS;
+    const have = F.CM_LANGS.filter(function (l) { return !!sec[F.cmLayer(id, l)]; });
+    const show = want.filter(function (l) { return have.indexOf(l) >= 0; });
+    return show.length ? show : have;
+  }
+
+  /* "3 comments", "1 MT link", "2 comments by Rashbam". */
   function countText(layer, n) {
+    if (isCm(layer)) return n + (n === 1 ? ' comment' : ' comments') + ' by ' + CM.get(layer).en;
     const one = { co: 'comment', notes: 'review note', mt: 'MT link' }[layer];
     return n + ' ' + (n === 1 ? one : one + 's');
   }
+
+  /* A layer's sign beside its count: an icon, or a commentator's name in
+     short (רשב"ם). */
+  function annIcon(layer) {
+    if (!isCm(layer)) return TR.icons[ANN_ICON[layer]]();
+    const c = CM.get(layer);
+    return UI.el('b.cm-abbr', c.he ? { lang: 'he', dir: 'rtl', text: c.he } : { text: c.en });
+  }
+  const markCls = function (layer) { return 'span.mk-' + layer + (isCm(layer) ? '.mk-cm' : ''); };
   const TEXT = ['he', 'tg', 'en'];      // the text columns, in order
   const COL_LANG = { he: 'he', tg: 'he', en: 'en' };
 
@@ -189,15 +231,15 @@
     return n.c + ':' + n.h + (n.h2 != null ? '–' + n.h2 : '');
   }
 
-  function noteContent(n) {
+  function noteContent(n, lang) {
     return [
-      TR.md.para(n.text, 'p'),
-      paras(n.more),
+      TR.md.para(n.text, lang === 'he' ? 'p.he' : 'p'),
+      paras(n.more, lang),
       n.h2 != null ? UI.el('p.note-range', { text: 'on ' + noteRange(n) }) : null
     ];
   }
 
-  const kindOf = function (layer) { return layer === 'notes' ? 'review' : layer; };
+  const kindOf = function (layer) { return layer === 'notes' ? 'review' : isCm(layer) ? 'cm' : layer; };
 
   function noteEl(ctx, n, layer) {
     const change = findChange(ctx.changes, layer, 'note', n.label);
@@ -267,11 +309,34 @@
     return box;
   }
 
+  /* A commentator's comments on verse `key`, as notesCell() draws the
+     others: a heading, then its comments in each language shown, side by
+     side where there is room. Never edited, so never changed. */
+  function cmCell(ctx, layer, key) {
+    const c = CM.get(layer);
+    const lists = (ctx.cmLangs[layer] || []).map(function (lang) {
+      const notes = lib.notesFor(ctx.sec[F.cmLayer(layer, lang)], key);
+      if (!notes.length) return null;
+      return UI.el('div.notelist.cm-' + lang, lang === 'he' ? { lang: 'he', dir: 'rtl' } : { dir: 'ltr' }, notes.map(function (n) {
+        return UI.el('div.note.cm', noteContent(n, lang));
+      }));
+    }).filter(Boolean);
+    const head = UI.el('div.annhead', { title: c.full || null }, [
+      UI.el('span', { text: c.en }),
+      c.he ? UI.el('span.cm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null
+    ]);
+    /* The Hebrew on the side the text's Hebrew is on (stacked, first). */
+    const box = cell(layer, [head, UI.el('div.cmcols.he-' + heSide(), lists)], lists.length ? 'cm' : 'cm.none');
+    box._count = noteCounts(ctx, layer).get(key) || 0;
+    box._changed = false;
+    return box;
+  }
+
   /* A verse's notes of each layer, as notesCell() draws them, and the block
      of them under its text. */
   function noteBoxes(ctx, key) {
     const boxes = {};
-    ANN.forEach(function (layer) { boxes[layer] = notesCell(ctx, layer, key); });
+    ANN.forEach(function (layer) { boxes[layer] = isCm(layer) ? cmCell(ctx, layer, key) : notesCell(ctx, layer, key); });
     return boxes;
   }
 
@@ -290,8 +355,8 @@
       type: 'button', title: said.join(', '), 'aria-label': said.join(', '), onclick: onclick,
       'aria-expanded': expanded == null ? null : expanded ? 'true' : 'false'
     }, shown.map(function (layer) {
-      return UI.el('span.mk-' + layer + (changed[layer] ? '.' + changed[layer] : ''),
-        [TR.icons[ANN_ICON[layer]](), UI.el('span', { text: counts[layer] ? String(counts[layer]) : '·' })]);
+      return UI.el(markCls(layer) + (changed[layer] ? '.' + changed[layer] : ''),
+        [annIcon(layer), UI.el('span', { text: counts[layer] ? String(counts[layer]) : '·' })]);
     }));
     m.hidden = !shown.length;
     return m;
@@ -728,10 +793,27 @@
       UI.el('div.dm-head', { text: 'Hebrew on the' }),
       segs('heSide', 'Hebrew on the', { left: 'Left', right: 'Right' }),
 
-      /* Where the chosen verse's commentary, review notes and MT links show. */
+      /* The commentators to show in the notes pane, and in which language. */
+      lib.commentators.length ? [
+        UI.el('div.dm-head', { text: 'Commentators' }),
+        UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, lib.commentators.map(function (c) {
+          const hidden = TR.device.get('cmHidden') || [];
+          const on = hidden.indexOf(c.id) < 0;
+          return UI.el('button.dm-item', {
+            type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', title: c.full || null,
+            onclick: function () {
+              repaint({ cmHidden: on ? hidden.concat([c.id]) : hidden.filter(function (x) { return x !== c.id; }) });
+            }
+          }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: c.en }),
+            c.he ? UI.el('span.dm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null]);
+        })),
+        segs('cmLang', 'Commentators\u2019 language', { he: 'Hebrew', en: 'English', both: 'Both' })
+      ] : null,
+
+      /* Where the chosen verse's notes show. */
       UI.el('div.dm-head', { text: 'Notes pane' }),
       segs('panePos', 'Notes pane', paneLabels),
-      UI.el('p.dm-sub', { text: 'Select a verse to see its commentary, review notes and MT links there.' +
+      UI.el('p.dm-sub', { text: 'Select a verse to see its commentary, review notes, commentators and MT links there.' +
         (window.innerWidth < PANE_SIDE_FROM ? ' At the bottom while the window is this narrow.' : '') })
     ]);
     menu.hidden = !displayOpen;
@@ -932,9 +1014,12 @@
 
   /* One book on the page, viewed as the header asks. */
   function bookCtx(raw, meta, changes) {
+    syncCommentators();
     const sec = lib.view(raw, heMode());
+    const langs = {};
+    CM.forEach(function (c, id) { langs[id] = cmLangs(sec, id); });
     return {
-      id: raw.id, meta: meta, title: meta.en, sec: sec, raw: raw,
+      id: raw.id, meta: meta, title: meta.en, sec: sec, raw: raw, cmLangs: langs,
       changes: lib.changes(raw), branch: changes || {}, base: TR.device.get('baseBranch')
     };
   }
@@ -1109,9 +1194,17 @@
     if (!ctx.counts) ctx.counts = {};
     if (!ctx.counts[layer]) {
       const m = new Map();
-      const doc = ctx.sec[layer];
-      if (doc) doc.chapters.forEach(function (ch) {
-        ch.notes.forEach(function (n) { const k = F.noteKey(n); m.set(k, (m.get(k) || 0) + 1); });
+      /* A commentator's, in whichever of its languages shown has more. */
+      const docs = isCm(layer)
+        ? (ctx.cmLangs[layer] || []).map(function (l) { return ctx.sec[F.cmLayer(layer, l)]; })
+        : [ctx.sec[layer]];
+      docs.forEach(function (doc) {
+        if (!doc) return;
+        const one = new Map();
+        doc.chapters.forEach(function (ch) {
+          ch.notes.forEach(function (n) { const k = F.noteKey(n); one.set(k, (one.get(k) || 0) + 1); });
+        });
+        one.forEach(function (n, k) { m.set(k, Math.max(m.get(k) || 0, n)); });
       });
       ctx.counts[layer] = m;
     }
@@ -1138,8 +1231,8 @@
     if (same(v, chosen)) el.classList.add('sel');
   }
 
-  /* Has verse `v` commentary, review notes or MT links, or a change to
-     them (the drafts' or the branch's)? */
+  /* Has verse `v` commentary, review notes, commentators or MT links, or a
+     change to them (the drafts' or the branch's)? */
   function annotated(v) {
     return ANN.some(function (layer) {
       return noteCounts(v.ctx, layer).get(v.key) || touched(v.ctx.changes, layer, v.key) || touched(v.ctx.branch, layer, v.key);
@@ -1183,8 +1276,8 @@
   }
 
   /* Whether verse `key` has notes, for its numbers in either layout: `cls`
-     is 'noted' if it has commentary, review notes or MT links or a change
-     to them, with 'changed' when this device has changed them or
+     is 'noted' if it has commentary, review notes, commentators or MT links
+     or a change to them, with 'changed' when this device has changed them or
      'branched' when the branch has (else ''); `said`, how many of each. */
   function noteState(ctx, key) {
     const said = [];
@@ -1227,8 +1320,8 @@
     });
   }
 
-  /* The chosen verse's commentary, review notes and MT links, in the pane
-     along the bottom or a side (paneEl). It is a verse row like the
+  /* The chosen verse's commentary, review notes, commentators and MT links,
+     in the pane along the bottom or a side (paneEl). It is a verse row like the
      interlinear ones, so editing in it, and keeping an editor open across a
      repaint (holdRow), work the same. */
   function versePanel() {
@@ -1267,7 +1360,7 @@
 
   function noneNote(boxes) {
     return ANN.some(function (layer) { return boxes[layer]._count; }) ? null
-      : UI.el('p.vp-none', { text: 'No commentary, review notes or MT links on this verse yet.' });
+      : UI.el('p.vp-none', { text: 'No commentary, review notes, commentators or MT links on this verse yet.' });
   }
 
   /* In the pane's bar: add commentary, or a review note, to its verse. */
@@ -1333,8 +1426,8 @@
       /* Each layer's count with its icon, as the margin markers have them. */
       v ? (has.length
         ? UI.el('span.pane-count', { title: said.join(' · '), 'aria-label': said.join(', ') }, has.map(function (l) {
-          return UI.el('span.mk-' + l, { 'aria-hidden': 'true' },
-            [TR.icons[ANN_ICON[l]](), UI.el('span', { text: String(boxes[l]._count) })]);
+          return UI.el(markCls(l), { 'aria-hidden': 'true' },
+            [annIcon(l), UI.el('span', { text: String(boxes[l]._count) })]);
         }))
         : UI.el('span.pane-count.none', { text: 'No notes' })) : null,
       v ? UI.el('div.vp-tools', [
@@ -1352,7 +1445,7 @@
       if (!onControl) setOpen(!el.classList.contains('open-pane'));
     });
     const body = UI.el('div.pane-body', v ? [annBlock(boxes), noneNote(boxes)] : [
-      UI.el('p.vp-hint', { text: 'Select a verse to see its commentary, review notes and MT links here, or to bookmark it.' })
+      UI.el('p.vp-hint', { text: 'Select a verse to see its commentary, review notes, commentators and MT links here, or to bookmark it.' })
     ]);
 
     const el = UI.el('aside.vpanel.pane.at-' + pos + (v ? '.row.law.open' : ''), v ? { 'data-key': key, 'data-sec': ctx.id } : {},
