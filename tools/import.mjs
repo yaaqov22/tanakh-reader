@@ -345,6 +345,7 @@ const READING_FIXES = [
   { row: 'שבועות', from: 'שמות יט,א-כ,כג', to: 'שמות יט,א-כ,כב', why: 'Exodus 20 has 22 verses in this numbering' },
   { row: "שבועות יום ב' בגלות", from: 'במדבר כ,כו-לא', to: 'במדבר כח,כו-לא', why: 'the maftir is Numbers 28:26–31, as on the first day' },
   { row: 'שבת שובה', from: 'הושע יד,ב,י', to: 'הושע יד,ב-י', why: '"ב,י" for "ב-י"' },
+  { row: 'שבת חולו של מועד פסח', from: 'במדבר כח,טז-כה', to: 'במדבר כח,יט-כה', why: 'the maftir is Numbers 28:19–25, as on the last days; 28:16–18 is the first day\'s' },
 ];
 
 // "ישעיהו מב,ה-מג,י ; מג,יא" → [{ book, from, to }]. A reference without a
