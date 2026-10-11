@@ -823,9 +823,22 @@ a.crumb:hover { color: var(--accent); }
 .ann .cell { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .row.general .ann .cell { margin-top: 4px; }
 .annhead { margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+/* A block's heading in the pane folds it: a button the width of the block. */
+button.annhead {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 2px 0; border: 0; background: none;
+  font-family: var(--font-ui); text-align: start; cursor: pointer;
+}
+button.annhead:hover .annhead-name { text-decoration: underline; text-underline-offset: 3px; }
+button.annhead:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2; transition: transform 0.15s; }
+.annhead-name { display: inline-flex; align-items: baseline; gap: 8px; }
+.annhead-n { font-weight: 500; letter-spacing: 0; opacity: 0.8; }
+.cell.folded > button.annhead { margin-bottom: 0; }
+.cell.folded > button.annhead > svg { transform: rotate(-90deg); }
+.cell.folded > :not(.annhead) { display: none; }
 .cell.notes .annhead { color: var(--accent); }
 .cell.mt .annhead { color: var(--mt); }
-.cell.cm .annhead { display: flex; align-items: baseline; gap: 8px; color: var(--cm); }
+.cell.cm .annhead { color: var(--cm); }
 .cell.cm .annhead .cm-he { font-family: var(--font-he); font-size: 14px; letter-spacing: 0; text-transform: none; }
 .notelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px 28px; align-items: start; }
 .notelist div.note { margin: 0; }
@@ -850,7 +863,6 @@ a.crumb:hover { color: var(--accent); }
 .annmark .mk-notes { color: var(--accent); }
 .annmark .mk-mt { color: var(--mt); }
 .annmark .mk-cm { color: var(--cm); }
-.cm-abbr { font-family: var(--font-he); font-size: 14px; font-weight: 600; line-height: 1; }
 .annmark .changed { color: var(--edit); }
 .annmark .branched { color: var(--up); }
 .annmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

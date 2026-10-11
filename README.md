@@ -18,7 +18,7 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 
 The texts themselves are read-only. Only the commentary and review notes are edited.
 
-In the notes pane a verse's notes come in this order: commentary, review notes, each commentator, MT links.
+In the notes pane a verse's notes come in this order: commentary, review notes, each commentator, MT links. Each block folds away from its heading, and stays folded whatever verse is chosen until unfolded. The pane's bar counts each kind of note under its icon, the commentators all together under one (an open book).
 
 ### By chapter or by parashah
 

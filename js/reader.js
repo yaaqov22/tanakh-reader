@@ -74,6 +74,10 @@
    too, read-only, each in its Hebrew and its English: between the review
    notes and the MT links, one block each, the two languages side by side.
    Which commentators show, and in which language, are the Display menu's.
+   The pane's bar counts them all together, under one icon.
+
+   FOLDING. Each block in the pane folds away from its heading, and stays
+   folded, whatever verse is chosen, until unfolded (a device setting).
 
    ALIYOT. A parashah's or holiday's Torah page marks where each aliyah and
    the maftir begin (data/aliyot.json, lib.aliyot()), a badge in a strip down
@@ -144,14 +148,45 @@
     return n + ' ' + (n === 1 ? one : one + 's');
   }
 
-  /* A layer's sign beside its count: an icon, or a commentator's name in
-     short (רשב"ם). */
+  /* A layer's sign beside its count: its icon, the commentators' one icon. */
   function annIcon(layer) {
-    if (!isCm(layer)) return TR.icons[ANN_ICON[layer]]();
-    const c = CM.get(layer);
-    return UI.el('b.cm-abbr', c.he ? { lang: 'he', dir: 'rtl', text: c.he } : { text: c.en });
+    return isCm(layer) ? TR.icons.commentators() : TR.icons[ANN_ICON[layer]]();
   }
   const markCls = function (layer) { return 'span.mk-' + layer + (isCm(layer) ? '.mk-cm' : ''); };
+
+  /* Which blocks of the pane are folded (by layer; a commentator by its id). */
+  function folded(layer) { return (TR.device.get('paneFolded') || []).indexOf(layer) >= 0; }
+  function setFolded(layer, on) {
+    const list = (TR.device.get('paneFolded') || []).filter(function (l) { return l !== layer; });
+    if (on) list.push(layer);
+    TR.device.set({ paneFolded: list });
+  }
+
+  /* A block's heading, which folds it away and back: a chevron, its name
+     (`label`, text or nodes) and how many notes it has. */
+  function annHead(layer, label, count, title) {
+    const open = !folded(layer);
+    const head = UI.el('button.annhead', {
+      type: 'button', 'aria-expanded': open ? 'true' : 'false',
+      title: (title ? title + ' · ' : '') + (open ? 'Fold' : 'Unfold'),
+      onclick: function () {
+        const box = head.closest('.cell');
+        const fold = !box.classList.contains('folded');
+        foldBox(box, fold);
+        setFolded(layer, fold);
+      }
+    }, [TR.icons.chevron(), UI.el('span.annhead-name', typeof label === 'string' ? { text: label } : null, typeof label === 'string' ? null : label),
+      count ? UI.el('span.annhead-n', { text: String(count) }) : null]);
+    return head;
+  }
+
+  function foldBox(box, fold) {
+    box.classList.toggle('folded', fold);
+    const head = box.querySelector(':scope > .annhead');
+    if (!head) return;
+    head.setAttribute('aria-expanded', fold ? 'false' : 'true');
+    head.title = head.title.replace(/(Fold|Unfold)$/, fold ? 'Unfold' : 'Fold');
+  }
   const TEXT = ['he', 'tg', 'en'];      // the text columns, in order
   const COL_LANG = { he: 'he', tg: 'he', en: 'en' };
 
@@ -303,7 +338,8 @@
     (ctx.branch[layer] || []).filter(gone).forEach(function (ch) { out.push(branchDeletedNote(ctx, ch, layer)); });
     (ctx.changes[layer] || []).filter(gone).forEach(function (ch) { out.push(deletedNote(ctx, ch, layer)); });
     const list = UI.el('div.notelist', out);
-    const box = cell(layer, [UI.el('div.annhead', { text: ANN_TITLE[layer] }), list], out.length ? null : 'none');
+    const box = cell(layer, [annHead(layer, ANN_TITLE[layer], count), list],
+      [out.length ? null : 'none', folded(layer) ? 'folded' : null].filter(Boolean).join('.') || null);
     box._count = count;
     box._changed = out.some(function (el) { return el.classList.contains('changed') || el.classList.contains('branched'); });
     return box;
@@ -321,13 +357,15 @@
         return UI.el('div.note.cm', noteContent(n, lang));
       }));
     }).filter(Boolean);
-    const head = UI.el('div.annhead', { title: c.full || null }, [
+    const count = noteCounts(ctx, layer).get(key) || 0;
+    const head = annHead(layer, [
       UI.el('span', { text: c.en }),
       c.he ? UI.el('span.cm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null
-    ]);
+    ], count, c.full);
     /* The Hebrew on the side the text's Hebrew is on (stacked, first). */
-    const box = cell(layer, [head, UI.el('div.cmcols.he-' + heSide(), lists)], lists.length ? 'cm' : 'cm.none');
-    box._count = noteCounts(ctx, layer).get(key) || 0;
+    const box = cell(layer, [head, UI.el('div.cmcols.he-' + heSide(), lists)],
+      'cm' + (lists.length ? '' : '.none') + (folded(layer) ? '.folded' : ''));
+    box._count = count;
     box._changed = false;
     return box;
   }
@@ -459,6 +497,7 @@
     const prefix = notePrefix(layer, phrase);
     const wrap = UI.el('div.note.new.' + kindOf(layer));
     box.classList.remove('none');
+    if (box.classList.contains('folded')) { foldBox(box, false); setFolded(layer, false); }
     const none = box.closest('.pane-body') && box.closest('.pane-body').querySelector('.vp-none');
     if (none) none.hidden = true;
     box.querySelector('.notelist').appendChild(wrap);
@@ -1414,6 +1453,15 @@
     const boxes = v ? noteBoxes(ctx, key) : null;
     const has = v ? ANN.filter(function (l) { return boxes[l]._count; }) : [];
     const said = has.map(function (l) { return countText(l, boxes[l]._count); });
+    /* In the bar, the commentators are counted together, under one icon,
+       where they stand among the layers. */
+    const shown = [];
+    has.forEach(function (l) {
+      if (!isCm(l)) { shown.push({ cls: markCls(l), icon: annIcon(l), n: boxes[l]._count }); return; }
+      const all = shown.find(function (x) { return x.cm; });
+      if (all) all.n += boxes[l]._count;
+      else shown.push({ cm: true, cls: 'span.mk-cm', icon: TR.icons.commentators(), n: boxes[l]._count });
+    });
 
     const toggle = UI.el('button.iconbtn.pane-toggle', { type: 'button', onclick: function () { setOpen(!el.classList.contains('open-pane')); } });
     const grip = UI.el('div.pane-grip', {
@@ -1425,9 +1473,8 @@
       v ? verseRef(v) : UI.el('span.pane-hint', { text: 'Notes · no verse selected' }),
       /* Each layer's count with its icon, as the margin markers have them. */
       v ? (has.length
-        ? UI.el('span.pane-count', { title: said.join(' · '), 'aria-label': said.join(', ') }, has.map(function (l) {
-          return UI.el(markCls(l), { 'aria-hidden': 'true' },
-            [annIcon(l), UI.el('span', { text: String(boxes[l]._count) })]);
+        ? UI.el('span.pane-count', { title: said.join(' · '), 'aria-label': said.join(', ') }, shown.map(function (x) {
+          return UI.el(x.cls, { 'aria-hidden': 'true' }, [x.icon, UI.el('span', { text: String(x.n) })]);
         }))
         : UI.el('span.pane-count.none', { text: 'No notes' })) : null,
       v ? UI.el('div.vp-tools', [
