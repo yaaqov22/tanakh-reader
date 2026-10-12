@@ -36,7 +36,7 @@
   'use strict';
   const TR = root.TR = root.TR || {};
 
-  const LAYER_NAME = { he: 'Hebrew', tp: 'Hebrew (punctuated)', onq: 'Targum', onqk: 'Targum (unpointed)', en: 'English', co: 'Commentary', notes: 'Review notes' };
+  const LAYER_NAME = { he: 'Hebrew', tp: 'Hebrew (punctuated)', onq: 'Targum', onqk: 'Targum (unpointed)', en: 'English', co: 'Commentary', digest: 'Noahide Digest', notes: 'Review notes' };
   const RETRIES = 2;
   const SHARE_RETRIES = 4;   // three people finishing edits at once
 

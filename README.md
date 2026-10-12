@@ -12,13 +12,14 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 | Targum | `u002` / `q001` | Torah only. It is shown unpointed when the Hebrew is shown as letters only. |
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
+| Noahide Digest | yours, from the commentators | Comments chosen from the commentators, each copied in with where it came from. The star beside a commentator's comment in the notes pane puts it in or takes it out, and each entry can be trimmed like a note. Its own screen (the star in the top bar, `#/digest`) shows every entry in one stream, by book and verse, filtered by book and by commentator. |
 | Review notes | yours | Editable, and signed with your name and the date. |
 | Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries on the Torah, so far Rashi, Rashbam, Ramban and Sforno, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side). Generated (`tools/commentators.mjs`), not edited. |
 | MT links | the [Mishneh Torah](https://github.com/yaaqov22/mishneh-torah) | Every halakhah that quotes the verse: its name, chapter and number, linked to it in [MT Reader](https://yaaqov22.github.io/mt-reader/), then its text. Generated (`tools/mt-links.mjs`), not edited. |
 
-The texts themselves are read-only. Only the commentary and review notes are edited.
+The texts themselves are read-only. Only the commentary, the Noahide Digest and review notes are edited.
 
-In the notes pane a verse's notes come in this order: commentary, review notes, each commentator, MT links. Each block folds away from its heading, and stays folded whatever verse is chosen until unfolded. The pane's bar counts each kind of note under its icon, the commentators all together under one (an open book).
+In the notes pane a verse's notes come in this order: commentary, Noahide Digest, review notes, each commentator, MT links. Each block folds away from its heading, and stays folded whatever verse is chosen until unfolded. The pane's bar counts each kind of note under its icon, the commentators all together under one (an open book).
 
 ### By chapter or by parashah
 
@@ -102,6 +103,8 @@ Hebrew/01-tp.md        the punctuated edition, same shape
 Targum/01-onq.md       Onqelos (Torah only); 01-onqk.md unpointed
 Translation/01-en.md   # Genesis / ## Genesis, Chapter 1 / 1:1 In the beginning …
 Commentary/01-co.md    [^1.1.1]: text   (chapter.verse.n; continuation paragraphs tab-indented)
+Digest/01-digest.md    the same, for the Noahide Digest: [^1.4.1]: {ramban-en 1.4.2} text
+                       (the tag: the commentator's layer and the comment's label there; no tag, a note of one's own)
 Notes/01-notes.md      the same, for review notes
 MT/01-mt.md            the same, for MT links: [^6.4.2]: ***[Laws of … 1:7](https://…/mt-reader/#/read/1-1/1/7)*** - text
 Commentators/rashbam/01-he.md   the same, for a commentator: [^1.4.2]: **ויבדל א-להים בין האור ובין החשך** - …
@@ -147,6 +150,7 @@ The same layout as MT Reader. Every script attaches itself to `window.TR`.
 | `js/scroll.js` | The scroll layout: the text cut into paragraphs, song lines and blank lines by its section marks, and the verse numbers' margin |
 | `js/books.js` | Home screens: Books, Parashot, Holidays |
 | `js/markdown.js` | Inline Markdown for notes, and verse rendering for the interlinear layout (section marks as written, ktiv/qere, large letters) |
+| `js/digest.js` | The Noahide Digest: starring a commentator's comment into it, its entries as shown, and its own screen |
 | `js/search.js` | Search over Hebrew, Targum, English and notes, and the commentators and MT links when their chips are on (off by default); matches with or without vowels |
 | `js/edit.js`, `merge.js`, `submit.js`, `changes.js`, `review.js`, `branches.js`, `session.js` | Drafts, merging, pull requests, reviewing branches, live sessions (from MT Reader) |
 | `tools/import.mjs` | Builds the `tanakh` repo from the zips |

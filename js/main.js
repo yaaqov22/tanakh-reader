@@ -26,6 +26,10 @@
     home.appendChild(TR.icons.books());
     TR.bus.on('route', function (r) { home.classList.toggle('on', r.id === 'books'); });
 
+    const digest = document.getElementById('digest-btn');
+    digest.appendChild(TR.icons.digest());
+    TR.bus.on('route', function (r) { digest.classList.toggle('on', r.id === 'digest'); });
+
     bookmarkMenu();
     ghMenu();
 

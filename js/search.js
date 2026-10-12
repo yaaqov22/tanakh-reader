@@ -139,7 +139,7 @@
       });
     });
 
-    ['co', 'notes', 'mt'].concat(sec.cms || []).forEach(function (layer) {
+    ['co', 'digest', 'notes', 'mt'].concat(sec.cms || []).forEach(function (layer) {
       const doc = sec[layer];
       if (!doc) return;
       add(out, meta, layer, 'intro', secHref, 'General remarks', [doc.title].concat(doc.front, doc.intro));
@@ -238,7 +238,7 @@
     const ts = terms(q);
     if (!ts.length) return { terms: ts, places: [] };
     const want = opts.layers;
-    const groupOf = { he: 'he', onq: 'tg', en: 'en', co: 'co', notes: 'co', mt: 'mt' };
+    const groupOf = { he: 'he', onq: 'tg', en: 'en', co: 'co', digest: 'co', notes: 'co', mt: 'mt' };
     lib.commentators.forEach(function (c) {
       F.CM_LANGS.forEach(function (l) { groupOf[F.cmLayer(c.id, l)] = 'cm'; });
     });
@@ -388,6 +388,7 @@
   /* A hit's layer, as its result names it: "Note", "Rashbam". */
   function hitLayer(e, g) {
     if (e.layer === 'notes') return 'Note';
+    if (e.layer === 'digest') return 'Noahide Digest';
     if (e.layer === 'mt') return 'MT link';
     const c = F.cmOf(e.layer);
     const cm = c && lib.commentators.find(function (x) { return x.id === c.cm; });
