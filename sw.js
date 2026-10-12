@@ -6,7 +6,7 @@
    2. The entry point is network-first, so a deployed change is seen.
    3. A new worker never reloads the page; main.js toasts instead. */
 
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const CACHE = 'tanakh-reader-' + CACHE_VERSION;
 
 /* Must match the script tags in index.html. */
@@ -36,6 +36,7 @@ const SHELL = [
   'js/books.js',
   'js/reader.js',
   'js/search.js',
+  'js/digest.js',
   'js/changes.js',
   'js/branches.js',
   'js/settings.js',

@@ -79,6 +79,11 @@
    FOLDING. Each block in the pane folds away from its heading, and stays
    folded, whatever verse is chosen, until unfolded (a device setting).
 
+   THE NOAHIDE DIGEST (digest.js) is a commentary made of the commentators'
+   comments: each of their comments in the pane has a star that copies it
+   into the digest, or takes it out. The digest's entries show after the
+   commentary, each under the name of the commentator it is from.
+
    ALIYOT. A parashah's or holiday's Torah page marks where each aliyah and
    the maftir begin (data/aliyot.json, lib.aliyot()), a badge in a strip down
    the outer edge of the text, level with the verse.
@@ -107,14 +112,14 @@
   let live = null;  // { grid, page }: what is on screen, for the selection toolbar
 
   const LAYER_NAME = { he: 'Hebrew', tp: 'punctuated Hebrew', onq: 'Targum', onqk: 'Targum', en: 'English',
-    co: 'commentary', notes: 'review notes', mt: 'MT links' };
+    co: 'commentary', digest: 'Noahide Digest', notes: 'review notes', mt: 'MT links' };
   /* The notes layers under each verse. The MT links (the halakhot of the
      Mishneh Torah that quote the verse, tools/mt-links.mjs) show and hide as
      the others do, but are generated, and never edited here. */
-  let ANN = ['co', 'notes', 'mt'];
-  const ANN_TITLE = { co: 'Commentary', notes: 'Review notes', mt: 'MT links' };
-  const ANN_ICON = { co: 'comment', notes: 'note', mt: 'link' };
-  const editable = function (layer) { return layer === 'co' || layer === 'notes'; };
+  let ANN = ['co', 'digest', 'notes', 'mt'];
+  const ANN_TITLE = { co: 'Commentary', digest: 'Noahide Digest', notes: 'Review notes', mt: 'MT links' };
+  const ANN_ICON = { co: 'comment', digest: 'digest', notes: 'note', mt: 'link' };
+  const editable = function (layer) { return layer === 'co' || layer === 'notes' || layer === 'digest'; };
 
   /* The commentators on show (lib.index()'s, less those the Display menu
      hides), id → { id, en, he, full, books }. Each is a notes layer named by
@@ -129,7 +134,7 @@
       if (hidden.indexOf(c.id) < 0) CM.set(c.id, c);
       LAYER_NAME[c.id] = ANN_TITLE[c.id] = c.en;
     });
-    ANN = ['co', 'notes'].concat(Array.from(CM.keys()), ['mt']);
+    ANN = ['co', 'digest', 'notes'].concat(Array.from(CM.keys()), ['mt']);
   }
 
   /* Which of a commentator's languages a book shows: the Display menu's
@@ -144,7 +149,7 @@
   /* "3 comments", "1 MT link", "2 comments by Rashbam". */
   function countText(layer, n) {
     if (isCm(layer)) return n + (n === 1 ? ' comment' : ' comments') + ' by ' + CM.get(layer).en;
-    const one = { co: 'comment', notes: 'review note', mt: 'MT link' }[layer];
+    const one = { co: 'comment', digest: 'digest entry', notes: 'review note', mt: 'MT link' }[layer];
     return n + ' ' + (n === 1 ? one : one + 's');
   }
 
@@ -274,12 +279,17 @@
     ];
   }
 
+  /* A note's content as its layer shows it: a digest entry with its source. */
+  function shownNote(n, layer) {
+    return layer === 'digest' ? TR.digest.content(n, noteContent) : noteContent(n);
+  }
+
   const kindOf = function (layer) { return layer === 'notes' ? 'review' : isCm(layer) ? 'cm' : layer; };
 
   function noteEl(ctx, n, layer) {
     const change = findChange(ctx.changes, layer, 'note', n.label);
     const upstream = findChange(ctx.branch, layer, 'note', n.label);
-    const el = UI.el('div.note.' + kindOf(layer) + (change ? '.changed' : '') + (upstream ? '.branched' : ''), noteContent(n));
+    const el = UI.el('div.note.' + kindOf(layer) + (change ? '.changed' : '') + (upstream ? '.branched' : ''), shownNote(n, layer));
     if (upstream) el.appendChild(branchBar(ctx, upstream, el));
     if (change) el.appendChild(changeBar(ctx, layer, change, el));
     flash(el, ctx.id, layer, 'note', n.label);
@@ -287,8 +297,8 @@
     if (editable(layer)) {
       el.classList.add('editable');
       el.appendChild(UI.el('div.note-tools', [UI.el('button.iconbtn.note-edit', {
-        type: 'button', title: 'Edit this ' + (layer === 'notes' ? 'review note' : 'comment'),
-        'aria-label': 'Edit this ' + (layer === 'notes' ? 'review note' : 'comment'),
+        type: 'button', title: 'Edit this ' + (layer === 'notes' ? 'review note' : layer === 'digest' ? 'entry' : 'comment'),
+        'aria-label': 'Edit this ' + (layer === 'notes' ? 'review note' : layer === 'digest' ? 'entry' : 'comment'),
         onclick: function () { TR.editor.close().then(el._edit); }
       }, [TR.icons.pencil()])]));
       el._edit = function () {
@@ -304,7 +314,7 @@
             save: function (b) { return lib.edit(ctx.id, layer, function (doc) { return E.setNote(doc, layer, n.label, b); }, from); },
             render: function (b) {
               const s = split(b);
-              return noteContent(Object.assign({}, n, { text: s.text, more: s.rest }));
+              return shownNote(Object.assign({}, n, { text: s.text, more: s.rest }), layer);
             }
           });
         });
@@ -354,7 +364,7 @@
       const notes = lib.notesFor(ctx.sec[F.cmLayer(layer, lang)], key);
       if (!notes.length) return null;
       return UI.el('div.notelist.cm-' + lang, lang === 'he' ? { lang: 'he', dir: 'rtl' } : { dir: 'ltr' }, notes.map(function (n) {
-        return UI.el('div.note.cm', noteContent(n, lang));
+        return UI.el('div.note.cm', [digestStar(ctx, key, F.cmLayer(layer, lang), n)].concat(noteContent(n, lang)));
       }));
     }).filter(Boolean);
     const count = noteCounts(ctx, layer).get(key) || 0;
@@ -368,6 +378,19 @@
     box._count = count;
     box._changed = false;
     return box;
+  }
+
+  /* A star on comment `n` of a commentator's layer `cmLayer`: lit when the
+     comment is in the Noahide Digest; it puts it in or takes it out. */
+  function digestStar(ctx, key, cmLayer, n) {
+    const on = !!TR.digest.entryFor(ctx.sec.digest, key, cmLayer, n.label);
+    const label = on ? 'In the Noahide Digest: take it out' : 'Add to the Noahide Digest';
+    return UI.el('button.iconbtn.dg-star' + (on ? '.on' : ''), {
+      type: 'button', title: label, 'aria-label': label, 'aria-pressed': on ? 'true' : 'false',
+      onclick: function () {
+        TR.digest.toggle(ctx.id, key, cmLayer, n).then(function () { UI.refresh(); }, function (e) { UI.toast(e.message); });
+      }
+    }, [TR.icons.digest()]);
   }
 
   /* A verse's notes of each layer, as notesCell() draws them, and the block
@@ -852,7 +875,7 @@
       /* Where the chosen verse's notes show. */
       UI.el('div.dm-head', { text: 'Notes pane' }),
       segs('panePos', 'Notes pane', paneLabels),
-      UI.el('p.dm-sub', { text: 'Select a verse to see its commentary, review notes, commentators and MT links there.' +
+      UI.el('p.dm-sub', { text: 'Select a verse to see its commentary, Noahide Digest, review notes, commentators and MT links there.' +
         (window.innerWidth < PANE_SIDE_FROM ? ' At the bottom while the window is this narrow.' : '') })
     ]);
     menu.hidden = !displayOpen;
@@ -1270,7 +1293,7 @@
     if (same(v, chosen)) el.classList.add('sel');
   }
 
-  /* Has verse `v` commentary, review notes, commentators or MT links, or a
+  /* Has verse `v` commentary, Noahide Digest, review notes, commentators or MT links, or a
      change to them (the drafts' or the branch's)? */
   function annotated(v) {
     return ANN.some(function (layer) {
@@ -1315,7 +1338,7 @@
   }
 
   /* Whether verse `key` has notes, for its numbers in either layout: `cls`
-     is 'noted' if it has commentary, review notes, commentators or MT links
+     is 'noted' if it has commentary, Noahide Digest, review notes, commentators or MT links
      or a change to them, with 'changed' when this device has changed them or
      'branched' when the branch has (else ''); `said`, how many of each. */
   function noteState(ctx, key) {
@@ -1359,7 +1382,7 @@
     });
   }
 
-  /* The chosen verse's commentary, review notes, commentators and MT links,
+  /* The chosen verse's commentary, Noahide Digest, review notes, commentators and MT links,
      in the pane along the bottom or a side (paneEl). It is a verse row like the
      interlinear ones, so editing in it, and keeping an editor open across a
      repaint (holdRow), work the same. */
@@ -1399,7 +1422,7 @@
 
   function noneNote(boxes) {
     return ANN.some(function (layer) { return boxes[layer]._count; }) ? null
-      : UI.el('p.vp-none', { text: 'No commentary, review notes, commentators or MT links on this verse yet.' });
+      : UI.el('p.vp-none', { text: 'No commentary, Noahide Digest, review notes, commentators or MT links on this verse yet.' });
   }
 
   /* In the pane's bar: add commentary, or a review note, to its verse. */
@@ -1492,7 +1515,7 @@
       if (!onControl) setOpen(!el.classList.contains('open-pane'));
     });
     const body = UI.el('div.pane-body', v ? [annBlock(boxes), noneNote(boxes)] : [
-      UI.el('p.vp-hint', { text: 'Select a verse to see its commentary, review notes, commentators and MT links here, or to bookmark it.' })
+      UI.el('p.vp-hint', { text: 'Select a verse to see its commentary, Noahide Digest, review notes, commentators and MT links here, or to bookmark it.' })
     ]);
 
     const el = UI.el('aside.vpanel.pane.at-' + pos + (v ? '.row.law.open' : ''), v ? { 'data-key': key, 'data-sec': ctx.id } : {},
