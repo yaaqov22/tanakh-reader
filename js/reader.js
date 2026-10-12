@@ -75,7 +75,10 @@
    texts, generated from Sefaria by tools/commentators.mjs) are notes layers
    too, read-only, each in its Hebrew and its English: between the review
    notes and the MT links, one block each, the two languages side by side.
-   Which commentators show, and in which language, are the Display menu's.
+   Which commentators show, and in which language, are the Display menu's;
+   so is whether the commentary, the digest, the review notes and the MT
+   links show (cmHidden holds the ids of the layers and commentators that
+   don't).
    The pane's bar counts them all together, under one icon.
 
    FOLDING. Each block in the pane folds away from its heading, and stays
@@ -83,8 +86,9 @@
 
    THE NOAHIDE DIGEST (digest.js) is a commentary made of the commentators'
    comments: each of their comments in the pane has a star that copies it
-   into the digest, or takes it out. The digest's entries show after the
-   commentary, each under the name of the commentator it is from.
+   into the digest, or takes it out (while the digest is shown). The
+   digest's entries show after the commentary, each under the name of the
+   commentator it is from.
 
    ALIYOT. A parashah's or holiday's Torah page marks where each aliyah and
    the maftir begin (data/aliyot.json, lib.aliyot()), a badge in a strip down
@@ -129,15 +133,19 @@
   const CM = new Map();
   const isCm = function (layer) { return CM.has(layer); };
 
+  /* The notes layers on show: those the Display menu hasn't hidden, in the
+     pane's order. */
   function syncCommentators() {
     const hidden = TR.device.get('cmHidden') || [];
+    const shown = function (id) { return hidden.indexOf(id) < 0; };
     CM.clear();
     lib.commentators.forEach(function (c) {
-      if (hidden.indexOf(c.id) < 0) CM.set(c.id, c);
+      if (shown(c.id)) CM.set(c.id, c);
       LAYER_NAME[c.id] = ANN_TITLE[c.id] = c.en;
     });
-    ANN = ['co', 'digest', 'notes'].concat(Array.from(CM.keys()), ['mt']);
+    ANN = ['co', 'digest', 'notes'].filter(shown).concat(Array.from(CM.keys()), shown('mt') ? ['mt'] : []);
   }
+  const showing = function (layer) { return ANN.indexOf(layer) >= 0; };
 
   /* Which of a commentator's languages a book shows: the Display menu's
      choice, of those it has; or, if it has none of them, what it has. */
@@ -385,7 +393,7 @@
       const notes = lib.notesFor(ctx.sec[F.cmLayer(layer, lang)], key);
       if (!notes.length) return null;
       return UI.el('div.notelist.cm-' + lang, lang === 'he' ? { lang: 'he', dir: 'rtl' } : { dir: 'ltr' }, notes.map(function (n) {
-        return UI.el('div.note.cm', [digestStar(ctx, key, F.cmLayer(layer, lang), n)].concat(noteContent(n, lang)));
+        return UI.el('div.note.cm', [showing('digest') ? digestStar(ctx, key, F.cmLayer(layer, lang), n) : null].concat(noteContent(n, lang)));
       }));
     }).filter(Boolean);
     const count = noteCounts(ctx, layer).get(key) || 0;
@@ -663,7 +671,10 @@
   function addNote(ctx, key, layer, phrase) {
     return choose(live.verses.byKey.get(ctx.id + ' ' + key), false, true).then(function () {
       const panel = live && live.verses && live.verses.panel;
-      if (panel && panel.classList.contains('row')) newNote(ctx, panel.querySelector('.cell.' + layer), layer, key, phrase || '');
+      if (!panel || !panel.classList.contains('row')) return;
+      const box = panel.querySelector('.cell.' + layer);
+      if (box) newNote(ctx, box, layer, key, phrase || '');
+      else UI.toast('The ' + LAYER_NAME[layer] + ' are hidden: show them in the Display menu to add one.');
     });
   }
 
@@ -877,20 +888,28 @@
       segs('heSide', 'Hebrew on the', { left: 'Left', right: 'Right' }),
 
       /* The commentators to show in the notes pane, and in which language. */
+      /* What the notes pane shows: one's own notes, the digest, each
+         commentator and the MT links, each on or off; and the commentators'
+         language. */
+      UI.el('div.dm-head', { text: 'Commentators' }),
+      UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, [
+        { id: 'digest', en: 'Noahide Digest' },
+        { id: 'co', en: 'Commentary' },
+        { id: 'notes', en: 'Review notes' }
+      ].concat(lib.commentators, [{ id: 'mt', en: 'MT links' }]).map(function (c) {
+        const hidden = TR.device.get('cmHidden') || [];
+        const on = hidden.indexOf(c.id) < 0;
+        return UI.el('button.dm-item', {
+          type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', title: c.full || null,
+          onclick: function () {
+            repaint({ cmHidden: on ? hidden.concat([c.id]) : hidden.filter(function (x) { return x !== c.id; }) });
+          }
+        }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: c.en }),
+          c.he ? UI.el('span.dm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null]);
+      })),
       lib.commentators.length ? [
-        UI.el('div.dm-head', { text: 'Commentators' }),
-        UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, lib.commentators.map(function (c) {
-          const hidden = TR.device.get('cmHidden') || [];
-          const on = hidden.indexOf(c.id) < 0;
-          return UI.el('button.dm-item', {
-            type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', title: c.full || null,
-            onclick: function () {
-              repaint({ cmHidden: on ? hidden.concat([c.id]) : hidden.filter(function (x) { return x !== c.id; }) });
-            }
-          }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: c.en }),
-            c.he ? UI.el('span.dm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null]);
-        })),
-        segs('cmLang', 'Commentators\u2019 language', { he: 'Hebrew', en: 'English', both: 'Both' })
+        UI.el('p.dm-sub', { text: 'The commentators in' }),
+        segs('cmLang', 'The commentators\u2019 language', { he: 'Hebrew', en: 'English', both: 'Both' })
       ] : null,
 
       /* Where the chosen verse's notes show. */
@@ -1451,7 +1470,9 @@
      It opens under the button, or above it when the pane is shut at the
      foot of the screen; a click elsewhere or Escape closes it. */
   function addMenu(ctx, key, pos, isOpen) {
-    const items = ADDABLE.map(function (a) {
+    const can = ADDABLE.filter(function (a) { return showing(a.layer); });
+    if (!can.length) return null;
+    const items = can.map(function (a) {
       return UI.el('button', { type: 'button', role: 'menuitem', onclick: function () { show(false); addNote(ctx, key, a.layer, ''); } },
         [TR.icons[a.icon](), UI.el('span.mi-label', { text: a.label })]);
     });

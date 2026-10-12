@@ -60,7 +60,7 @@
     beside: 'en',       // the text beside the Hebrew, in either layout: 'en', 'tg' or 'none' (the Hebrew alone)
     heSide: 'right',    // which side of the page the Hebrew is on, in either layout: 'left' or 'right'
     readingDay: 'weekday',  // a holiday's aliyot as divided on a 'weekday' or on 'shabbat'
-    cmHidden: [],       // the commentators (Commentators/index.json ids) not shown in the notes pane
+    cmHidden: [],       // what the notes pane doesn't show: commentators (Commentators/index.json ids) and notes layers ('co', 'digest', 'notes', 'mt')
     cmLang: 'both',     // …and the language of those shown: 'he', 'en' or 'both'
     paneFolded: [],     // the notes pane's blocks folded away: layers ('co', 'notes', 'mt') and commentator ids
     paneOpen: true,     // whether the notes pane is open

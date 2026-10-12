@@ -12,9 +12,9 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 | Targum | `u002` / `q001` | Torah only. It is shown unpointed when the Hebrew is shown as letters only. |
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
-| Noahide Digest | yours, from the commentators | Comments chosen from the commentators, each copied in with where it came from. The star beside a commentator's comment in the notes pane puts it in or takes it out, and each entry can be trimmed like a note. Its own screen (the star in the top bar, `#/digest`) shows every entry in one stream, by book and verse, filtered by book and by commentator. |
+| Noahide Digest | yours, from the commentators | Comments chosen from the commentators, each copied in with where it came from. The star beside a commentator's comment in the notes pane puts it in or takes it out, and each entry can be trimmed like a note. |
 | Review notes | yours | Editable, and signed with your name and the date. |
-| Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries on the Torah, so far Rashi, Rashbam, Ibn Ezra, Ramban, Sforno and Or HaChaim, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side). Generated (`tools/commentators.mjs`), not edited. |
+| Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries on the Torah, so far Rashi, Rashbam, Ibn Ezra, Ramban, Sforno and Or HaChaim, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side); its list also shows or hides the Noahide Digest, the commentary, the review notes and the MT links. Generated (`tools/commentators.mjs`), not edited. |
 | MT links | the [Mishneh Torah](https://github.com/yaaqov22/mishneh-torah) | Every halakhah that quotes the verse: its name, chapter and number, linked to it in [MT Reader](https://yaaqov22.github.io/mt-reader/), then its text. Generated (`tools/mt-links.mjs`), not edited. |
 
 The texts themselves are read-only. Only the commentary, the Noahide Digest and review notes are edited.
@@ -152,7 +152,7 @@ The same layout as MT Reader. Every script attaches itself to `window.TR`.
 | `js/scroll.js` | The scroll layout: the text cut into paragraphs, song lines and blank lines by its section marks, and the verse numbers' margin |
 | `js/books.js` | Home screens: Books, Parashot, Holidays |
 | `js/markdown.js` | Inline Markdown for notes, and verse rendering for the interlinear layout (section marks as written, ktiv/qere, large letters) |
-| `js/digest.js` | The Noahide Digest: starring a commentator's comment into it, its entries as shown, and its own screen |
+| `js/digest.js` | The Noahide Digest: starring a commentator's comment into it, and its entries as shown |
 | `js/search.js` | Search over Hebrew, Targum, English and notes, and the commentators and MT links when their chips are on (off by default); matches with or without vowels |
 | `js/edit.js`, `merge.js`, `submit.js`, `changes.js`, `review.js`, `branches.js`, `session.js` | Drafts, merging, pull requests, reviewing branches, live sessions (from MT Reader) |
 | `tools/import.mjs` | Builds the `tanakh` repo from the zips |

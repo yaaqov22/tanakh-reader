@@ -359,20 +359,6 @@
 
     HE_MODES: HE_MODES,
 
-    /* One layer of a book, parsed, its draft applied (null if the book has
-       no such file), without reading the rest of the book: for the screens
-       that want one layer of every book (the Noahide Digest). A book already
-       read gives its own. */
-    layer: function (id, layer) {
-      if (sections.has(id)) return sections.get(id).then(function (sec) { return sec[layer] || null; });
-      const path = F.pathOf(id, layer);
-      return TR.drafts.ready().then(function () {
-        const d = TR.drafts.get(path);
-        if (d) return d.text === null ? null : F.parse(d.text, layer);
-        return TR.source.text(path).then(function (s) { return s === null ? null : F.parse(s, layer); });
-      });
-    },
-
     /* Notes (commentary or review) anchored to a law, keyed "chapter:law". */
     notesFor: function (doc, key) {
       if (!doc) return [];
