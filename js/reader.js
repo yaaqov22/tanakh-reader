@@ -821,7 +821,18 @@
     if (!wrap) return;
     wrap.querySelector('.dispmenu').hidden = !open;
     wrap.querySelector('.dispbtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    fitDisplay();
   }
+
+  /* The menu no taller than the window below where it opens, scrolling
+     within itself (--dm-top, read by the stylesheet, so that a menu drawn
+     afresh after a choice fits too). */
+  function fitDisplay() {
+    const menu = displayOpen && document.querySelector('.screen.on .dispmenu');
+    if (!menu) return;
+    document.documentElement.style.setProperty('--dm-top', Math.round(menu.getBoundingClientRect().top) + 'px');
+  }
+  window.addEventListener('resize', fitDisplay);
 
   document.addEventListener('click', function (e) {
     if (!displayOpen || !document.contains(e.target)) return;   // a choice that has repainted the menu
@@ -899,15 +910,15 @@
       /* What the notes pane shows, in its order, each on or off; and the
          commentators' language. */
       UI.el('div.dm-head', { text: 'Commentators' }),
-      UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, PANE_ORDER.map(function (id) {
+      UI.el('div.dm-list', { role: 'group', 'aria-label': 'Commentators' }, PANE_ORDER.map(function (id) {
         return { id: id, en: ANN_TITLE[id] };
       }).concat(commentatorsAZ()).map(function (c) {
         const on = lib.shows(c.id);
         return UI.el('button.dm-item', {
-          type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', title: c.full || null,
+          type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false',
+          title: [c.en, c.he, c.full].filter(Boolean).join(' · '),
           onclick: function () { repaint(lib.choiceFor(c.id, !on)); }
-        }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: c.en }),
-          c.he ? UI.el('span.dm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null]);
+        }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span.dm-name', { text: c.en })]);
       })),
       lib.commentators.length ? [
         UI.el('p.dm-sub', { text: 'The commentators in' }),
