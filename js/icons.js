@@ -53,6 +53,17 @@
     comment: function () {
       return svg('<path d="M4.5 5.5h15v10h-9l-4.5 4v-4h-1.5z"/><path d="M8.5 9.5h7M8.5 12.5h4.5"/>');
     },
+    /* Adding: a plus. */
+    plus: function () {
+      return svg('<path d="M12 5v14M5 12h14"/>');
+    },
+    /* The editor filling the notes pane, and back: arrows out to the corners, and in. */
+    expand: function () {
+      return svg('<path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/>');
+    },
+    shrink: function () {
+      return svg('<path d="M20 10h-6V4M4 14h6v6M14 10l6.5-6.5M10 14l-6.5 6.5"/>');
+    },
     /* The Noahide Digest: a star. */
     digest: function () {
       return svg('<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>');

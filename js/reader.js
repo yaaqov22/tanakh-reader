@@ -65,9 +65,11 @@
    Edits are drafts on this device (drafts.js); what they changed is marked
    where it stands, in green, with its diff and an undo.
 
-   NOTED VERSES. In either layout a verse's number is marked (noteState())
-   when it has commentary, review notes, a commentator's comments or MT
-   links; how many of each is in the pane's bar when it is chosen.
+   NOTED VERSES. In either layout a verse's number is circled (noteState())
+   when it has commentary or review notes of one's own, or a change to them;
+   the commentators, the digest and the MT links don't mark it. How many
+   notes of each kind it has is in the pane's bar when it is chosen, and in
+   its number's tooltip, the commentators counted together.
 
    COMMENTATORS. The classical commentaries (Rashbam …, Commentators/ in the
    texts, generated from Sefaria by tools/commentators.mjs) are notes layers
@@ -150,7 +152,26 @@
   function countText(layer, n) {
     if (isCm(layer)) return n + (n === 1 ? ' comment' : ' comments') + ' by ' + CM.get(layer).en;
     const one = { co: 'comment', digest: 'digest entry', notes: 'review note', mt: 'MT link' }[layer];
-    return n + ' ' + (n === 1 ? one : one + 's');
+    return n + ' ' + (n === 1 ? one : one.replace(/y$/, 'ie') + 's');
+  }
+
+  /* How many notes of each kind `counts` ({ layer: n }) holds, in words, the
+     commentators together: "2 comments, 13 comments by the commentators,
+     3 MT links". */
+  function summary(counts) {
+    const out = [];
+    let cms = 0;
+    ANN.forEach(function (layer) {
+      const n = counts[layer] || 0;
+      if (!n) return;
+      if (isCm(layer)) {
+        if (!cms) out.push(null);   // where the commentators stand
+        cms += n;
+      } else out.push(countText(layer, n));
+    });
+    return out.map(function (x) {
+      return x !== null ? x : cms + (cms === 1 ? ' comment' : ' comments') + ' by the commentators';
+    });
   }
 
   /* A layer's sign beside its count: its icon, the commentators' one icon. */
@@ -1171,9 +1192,9 @@
     }
     /* Its numbers say whether it has notes, as side by side's do. */
     const st = noteState(ctx, r.key);
-    if (st.cls) {
+    if (st.cls || st.said.length) {
       el.querySelectorAll('.text > .cell > p > a.label').forEach(function (a) {
-        st.cls.split(' ').forEach(function (c) { a.classList.add(c); });
+        st.cls.split(' ').filter(Boolean).forEach(function (c) { a.classList.add(c); });
         a.title = st.said.join(', ');
       });
     }
@@ -1293,13 +1314,6 @@
     if (same(v, chosen)) el.classList.add('sel');
   }
 
-  /* Has verse `v` commentary, Noahide Digest, review notes, commentators or MT links, or a
-     change to them (the drafts' or the branch's)? */
-  function annotated(v) {
-    return ANN.some(function (layer) {
-      return noteCounts(v.ctx, layer).get(v.key) || touched(v.ctx.changes, layer, v.key) || touched(v.ctx.branch, layer, v.key);
-    });
-  }
 
   /* ------------------------------------------------------------- aliyot */
 
@@ -1337,19 +1351,24 @@
     });
   }
 
-  /* Whether verse `key` has notes, for its numbers in either layout: `cls`
-     is 'noted' if it has commentary, Noahide Digest, review notes, commentators or MT links
-     or a change to them, with 'changed' when this device has changed them or
-     'branched' when the branch has (else ''); `said`, how many of each. */
+  /* Whether verse `key` has notes of one's own, for its numbers in either
+     layout: `cls` is 'noted' if it has commentary or review notes or a
+     change to them, with 'changed' when this device has changed them or
+     'branched' when the branch has (else ''); `said`, how many notes of
+     each kind it has (summary()). */
+  const OWN = ['co', 'notes'];   // the notes that circle a verse's number
+
   function noteState(ctx, key) {
-    const said = [];
+    const counts = {};
     let noted = false, mine = false, up = false;
     ANN.forEach(function (layer) {
-      const n = noteCounts(ctx, layer).get(key) || 0;
-      if (n) { said.push(countText(layer, n)); noted = true; }
+      counts[layer] = noteCounts(ctx, layer).get(key) || 0;
+      if (OWN.indexOf(layer) < 0) return;
+      if (counts[layer]) noted = true;
       if (touched(ctx.changes, layer, key)) mine = true;
       else if (touched(ctx.branch, layer, key)) up = true;
     });
+    const said = summary(counts);
     if (!noted && !mine && !up) return { cls: '', said: said };
     return { cls: 'noted' + (mine ? ' changed' : up ? ' branched' : ''), said: said };
   }
@@ -1400,14 +1419,10 @@
     ]);
   }
 
-  /* To the previous or next verse; `noted`, to the next with notes. */
-  function stepBtn(s, v, d, noted) {
-    let to = null;
-    for (let i = s.order.indexOf(v) + d; i >= 0 && i < s.order.length; i += d) {
-      if (!noted || annotated(s.order[i])) { to = s.order[i]; break; }
-    }
-    const label = noted ? (d < 0 ? 'Previous verse with notes' : 'Next verse with notes')
-      : (d < 0 ? 'Previous verse (k)' : 'Next verse (j)');
+  /* To the previous or next verse, notes or none. */
+  function stepBtn(s, v, d) {
+    const to = s.order[s.order.indexOf(v) + d] || null;
+    const label = d < 0 ? 'Previous verse (k)' : 'Next verse (j)';
     return UI.el('button.iconbtn.vp-step', {
       type: 'button', disabled: !to, title: label, 'aria-label': label,
       onclick: function () { if (to) choose(to, true); }
@@ -1425,13 +1440,45 @@
       : UI.el('p.vp-none', { text: 'No commentary, Noahide Digest, review notes, commentators or MT links on this verse yet.' });
   }
 
-  /* In the pane's bar: add commentary, or a review note, to its verse. */
-  function addBtn(ctx, key, layer) {
-    const label = layer === 'notes' ? 'Add a review note' : 'Add commentary';
-    return UI.el('button.iconbtn.vp-add.add-' + layer, {
-      type: 'button', title: label, 'aria-label': label,
-      onclick: function () { addNote(ctx, key, layer, ''); }
-    }, [(layer === 'notes' ? TR.icons.noteAdd : TR.icons.commentAdd)()]);
+  /* What the pane's Add menu offers, in order: a layer to add a note to,
+     its name there, and its icon. Another kind of note is another line. */
+  const ADDABLE = [
+    { layer: 'co', label: 'Comment', icon: 'commentAdd' },
+    { layer: 'notes', label: 'Note', icon: 'noteAdd' }
+  ];
+
+  /* In the pane's bar: Add, a menu of the kinds of note to add to its verse.
+     It opens under the button, or above it when the pane is shut at the
+     foot of the screen; a click elsewhere or Escape closes it. */
+  function addMenu(ctx, key, pos, isOpen) {
+    const items = ADDABLE.map(function (a) {
+      return UI.el('button', { type: 'button', role: 'menuitem', onclick: function () { show(false); addNote(ctx, key, a.layer, ''); } },
+        [TR.icons[a.icon](), UI.el('span.mi-label', { text: a.label })]);
+    });
+    const menu = UI.el('div.menu.add-menu' + (pos === 'bottom' && !isOpen ? '.up' : ''), { role: 'menu', 'aria-label': 'Add', hidden: true }, items);
+    const btn = UI.el('button.iconbtn.vp-add', {
+      type: 'button', title: 'Add…', 'aria-label': 'Add', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+      onclick: function () { show(menu.hidden); }
+    }, [TR.icons.plus()]);
+    const wrap = UI.el('div.menuwrap.add-wrap', [btn, menu]);
+    function away(e) { if (!wrap.contains(e.target)) show(false); }
+    function key_(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show(false); btn.focus(); return; }
+      const at = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); items[(at + 1) % items.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(at - 1 + items.length) % items.length].focus(); }
+    }
+    function show(on) {
+      menu.hidden = !on;
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      document.removeEventListener('click', away, true);
+      document.removeEventListener('keydown', key_, true);
+      if (!on) return;
+      document.addEventListener('click', away, true);
+      document.addEventListener('keydown', key_, true);
+      items[0].focus();
+    }
+    return wrap;
   }
 
   /* ---------------------------------------------------------------- pane */
@@ -1475,7 +1522,9 @@
     const ctx = v && v.ctx, key = v && v.key;
     const boxes = v ? noteBoxes(ctx, key) : null;
     const has = v ? ANN.filter(function (l) { return boxes[l]._count; }) : [];
-    const said = has.map(function (l) { return countText(l, boxes[l]._count); });
+    const counts = {};
+    has.forEach(function (l) { counts[l] = boxes[l]._count; });
+    const said = summary(counts);
     /* In the bar, the commentators are counted together, under one icon,
        where they stand among the layers. */
     const shown = [];
@@ -1501,9 +1550,9 @@
         }))
         : UI.el('span.pane-count.none', { text: 'No notes' })) : null,
       v ? UI.el('div.vp-tools', [
-        addBtn(ctx, key, 'co'), addBtn(ctx, key, 'notes'),
-        stepBtn(s, v, -1, true), stepBtn(s, v, 1, true),
+        addMenu(ctx, key, pos, open),
         bookmarkBtn(ctx, key),
+        stepBtn(s, v, -1), stepBtn(s, v, 1),
         closeBtn()
       ]) : null
     ]);
@@ -1511,7 +1560,7 @@
        e.target.closest: the toggle swaps its icon as it is clicked, leaving
        the target out of the document by the time the click gets here. */
     bar.addEventListener('click', function (e) {
-      const onControl = e.composedPath().some(function (n) { return n.matches && n.matches('a, button'); });
+      const onControl = e.composedPath().some(function (n) { return n.matches && n.matches('a, button, .menu'); });
       if (!onControl) setOpen(!el.classList.contains('open-pane'));
     });
     const body = UI.el('div.pane-body', v ? [annBlock(boxes), noneNote(boxes)] : [

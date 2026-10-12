@@ -1041,6 +1041,12 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .vp-tools .iconbtn { width: 30px; height: 30px; min-width: 30px; }
 .vp-tools .iconbtn svg { width: 18px; height: 18px; }
 .vp-tools .iconbtn:disabled { opacity: 0.3; cursor: default; }
+/* The pane bar's Add menu: under its button, or above it when the pane is
+   shut at the foot of the screen. */
+.add-wrap { position: relative; }
+.add-menu { min-width: 170px; cursor: default; }
+.add-menu.up { top: auto; bottom: calc(100% + 6px); }
+.pane.at-left .add-menu { right: auto; left: 0; }
 
 @media (max-width: 640px) {
   .scroll { grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
@@ -1494,6 +1500,20 @@ div.note.branched.changed { border-left-color: var(--edit); }
   direction: ltr;
 }
 .edit-status { flex: 1; }
+.edit-max { width: 30px; height: 30px; min-width: 30px; min-height: 0; }
+.edit-max svg { width: 16px; height: 16px; }
+/* Focus: the editor over the whole of the pane's body (editor.js places it
+   there), the text filling it and the bar along its foot. */
+.editor.max {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 8px;
+  background: var(--panel);
+}
+.editor.max .edit-area { flex: 1; min-height: 0; height: auto; resize: none; overflow: auto; }
+.editor.max .edit-bar { flex: none; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line-soft); }
 .edit-hint { font-family: ui-monospace, Consolas, monospace; }
 .edit-error { margin: 6px 0 0; font-family: var(--font-ui); font-size: 13px; color: var(--bad); direction: ltr; text-align: left; }
 .btn.small { min-height: 30px; padding: 3px 12px; font-size: 13px; }
