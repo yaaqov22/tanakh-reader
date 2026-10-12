@@ -14,6 +14,9 @@
 // (its list of versions, then each one's JSON), replacing what is there.
 // Without it, the files already there are used, so a rebuild needs no network.
 //
+// A version's introductions (Sefaria's parts beside its comments) open its
+// book's file. Its footnotes are left out.
+//
 // It writes, replacing what is there for the commentators it builds:
 //   Commentators/<id>/<book>-he.md, -en.md
 //       in the commentary's format, numbered as Mechon Mamre numbers the
@@ -104,18 +107,37 @@ async function fetchVersion(title, lang, vt) {
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 
+/* Sefaria's footnotes, left out: the marker, <sup class="footnote-marker">,
+   and the note itself, <i class="footnote">, which may hold <i>s of its own. */
+function dropFootnotes(s) {
+  s = s.replace(/<sup class="footnote-marker">[^<]*<\/sup>/g, '');
+  for (let at = s.indexOf('<i class="footnote">'); at >= 0; at = s.indexOf('<i class="footnote">')) {
+    const tag = /<(\/?)i\b[^>]*>/g;
+    tag.lastIndex = at;
+    let depth = 0, end = s.length, m;
+    while ((m = tag.exec(s))) {
+      depth += m[1] ? -1 : 1;
+      if (!depth) { end = m.index + m[0].length; break; }
+    }
+    s = s.slice(0, at) + s.slice(end);
+  }
+  return s;
+}
+
 /* One comment as Markdown paragraphs: Sefaria's HTML (<b>, <i>, <br>,
-   <small> …) read as Markdown or dropped, its line breaks made paragraphs,
-   and the words it comments on bolded where they stand plainly at the start
-   ("ויבדל אלהים - …" in the Hebrew, "ויבדל אלוקים, He arranged …" in the
-   English). */
-function paragraphs(html, lang) {
-  let s = String(html)
+   <small> …) read as Markdown or dropped, its footnotes left out, its line
+   breaks made paragraphs, and the words it comments on bolded where they
+   stand plainly at the start (lemma()). */
+function paragraphs(html, lang, lemma = true) {
+  let s = dropFootnotes(String(html))
     .replace(/\\/g, '\\\\').replace(/\*/g, '\\*')
     .replace(/\[([^\]]*)\]\(/g, '\\[$1\\](')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(b|strong)>/gi, '**')
-    .replace(/<\/?(i|em)>/gi, '*')
+    .replace(/<(b|strong|i|em)\b[^>]*>\s*<\/\1>/gi, '')           // empty, as Metsudah's markers are
+    .replace(/<(b|strong|i|em)\b[^>]*>(\s+)/gi, '$2<$1>')           // spaces outside the marks
+    .replace(/(\s+)<\/(b|strong|i|em)>/gi, '</$2>$1')
+    .replace(/<\/?(b|strong)\b[^>]*>/gi, '**')
+    .replace(/<\/?(i|em)\b[^>]*>/gi, '*')
     .replace(/<[^>]*>/g, '')
     .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
       if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : +e.slice(1));
@@ -124,31 +146,65 @@ function paragraphs(html, lang) {
     .replace(/\*\*(\s*)\*\*/g, '$1');
   const paras = s.split(/\s*\n\s*/).map(p => p.replace(/[ \t ]+/g, ' ').trim()).filter(Boolean)
     .map(p => p.replace(/^\*\*\s*\*\*/, ''));
-  if (paras.length && !paras[0].startsWith('*')) {
-    const he = /[א-ת]/;
-    if (lang === 'he') {
-      /* Up to the first dash standing between spaces, if that is short and
-         no sentence ends before it. */
-      const m = paras[0].match(/^((?:[^.:\-–]|[-–](?!\s)){1,90}?)\s+[-–]\s+/);
-      if (m && he.test(m[1])) paras[0] = `**${m[1].trim()}** - ` + paras[0].slice(m[0].length);
-    } else {
-      /* The Hebrew words before the first comma. */
-      const m = paras[0].match(/^([֐-׿'"׳״־\- ]{2,90}?),\s*/);
-      if (m && he.test(m[1])) paras[0] = `**${m[1].trim()}**, ` + paras[0].slice(m[0].length);
-    }
-  }
+  if (lemma && paras.length && !paras[0].startsWith('*')) paras[0] = bolded(paras[0], lang);
   return paras;
+}
+
+/* A comment with the words it comments on bolded, where they stand plainly
+   at its start, as each edition sets them:
+     Hebrew            "ויבדל אלהים - …", up to the first dash between spaces
+     English, Munk     "ויבדל אלוקים, He arranged …", the Hebrew before a comma or full stop
+     English, Rashi    "ואלה שמות NOW THESE ARE THE NAMES — Although …", up to the dash
+     English, Chavel   "AND THESE ARE THE NAMES OF …. The meaning …", the capitals
+   each only when short, and with no sentence ending inside it. */
+function bolded(p, lang) {
+  const he = /[א-ת]/;
+  const bold = (m, sep) => (`**${m[1].trim()}**${sep}` + p.slice(m[0].length)).trimEnd();
+  if (lang === 'he') {
+    const m = p.match(/^((?:[^.:\-–]|[-–](?!\s)){1,90}?)\s+[-–]\s+/);
+    return m && he.test(m[1]) ? bold(m, ' - ') : p;
+  }
+  let m = p.match(/^([֐-׿'"׳״־\- ]{2,90}?)([,.])\s*/);
+  if (m && he.test(m[1])) return bold(m, m[2] + ' ');
+  m = p.match(/^(.{2,160}?)\s+—\s*/);
+  if (m && !/[.!?]\s/.test(m[1]) && (he.test(m[1]) || /[A-Z]{2,}/.test(m[1]))) return bold(m, ' — ');
+  m = p.match(/^([A-Z0-9“‘"'(\[][^.!?]{1,200}?(?:…\.|[.!?][’”'"]?))\s+/);
+  if (m && !/[a-z]/.test(m[1].replace(/\[[^\]]*\]/g, '')) && /[A-Z]{2,}/.test(m[1])) return bold(m, ' ');
+  return p;
 }
 
 /* ------------------------------------------------------------- build */
 
 const skipped = [];
 
+/* A version's text: its comments by chapter and verse, and the parts beside
+   them (an Introduction, a Foreword) where Sefaria's text has any: those are
+   an object, the comments its "" (its default part), the others named. */
+function parts(json) {
+  const t = json.text;
+  if (Array.isArray(t)) return { main: t, named: [] };
+  const named = Object.keys(t || {}).filter(k => k !== '').map(k => [k, t[k]]);
+  return { main: (t && t['']) || [], named };
+}
+
+const flat = x => (Array.isArray(x) ? x.flatMap(flat) : typeof x === 'string' && x.trim() ? [x] : []);
+
+/* A version's introductions, as the paragraphs of its book's opening: each
+   under its name in bold. */
+function intros(json, lang) {
+  const out = [];
+  for (const [name, body] of parts(json).named) {
+    const paras = flat(body).flatMap(x => paragraphs(x, lang, false));
+    if (paras.length) out.push(`**${name}**`, ...paras);
+  }
+  return out;
+}
+
 /* A version's comments by Mechon Mamre's verse: Map("c:v" → [paragraphs]). */
 function comments(json, book, lang, where) {
   const out = new Map();
   const counts = byId.get(book).chapters;
-  (json.text || []).forEach((chapter, ci) => (chapter || []).forEach((verse, vi) => {
+  parts(json).main.forEach((chapter, ci) => (chapter || []).forEach((verse, vi) => {
     const list = (Array.isArray(verse) ? verse : [verse]).filter(x => typeof x === 'string' && x.trim());
     if (!list.length) return;
     const at = toMM(book, ci + 1, vi + 1);
@@ -163,8 +219,8 @@ function comments(json, book, lang, where) {
   return out;
 }
 
-function noteDoc(title, book, byVerse) {
-  const doc = { front: [], title, intro: [], chapters: [], warnings: [] };
+function noteDoc(title, book, byVerse, intro) {
+  const doc = { front: [], title, intro: intro || [], chapters: [], warnings: [] };
   const order = [...byVerse.keys()].sort((x, y) => {
     const [a1, a2] = x.split(':').map(Number), [b1, b2] = y.split(':').map(Number);
     return a1 - b1 || a2 - b2;
@@ -203,36 +259,45 @@ async function build(id, cm) {
     for (const lang of LANGS) {
       const merged = new Map();
       const from = new Map();   // verse → the version it came from
+      let intro = [];           // the first version's with any
       for (const want of (cm.versions[lang] || [])) {
         const v = versions.find(x => x.language === lang && x.versionTitle.toLowerCase().includes(want.toLowerCase()));
         if (!v) continue;
         if (opt.fetch) await fetchVersion(title, lang, v.versionTitle);
         const file = versionFile(title, lang, v.versionTitle);
         if (!fs.existsSync(file)) throw new Error(`${file}: not downloaded (run with --fetch)`);
-        const got = comments(JSON.parse(fs.readFileSync(file, 'utf8')), book, lang, `${title} (${v.versionTitle})`);
-        let added = 0;
+        const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+        const got = comments(json, book, lang, `${title} (${v.versionTitle})`);
+        let added = 0, introduced = false;
+        if (!intro.length) {
+          intro = intros(json, lang);
+          introduced = intro.length > 0;
+        }
         for (const [k, list] of got) {
           if (merged.has(k) || !list.length) continue;
           merged.set(k, list);
           from.set(k, v.versionTitle);
           added++;
         }
-        if (!added) continue;
+        if (!added && !introduced) continue;
         const key = lang + '|' + v.versionTitle;
         if (!used.has(key)) {
           used.set(key, { lang, version: v.versionTitle, license: v.license || null,
             source: v.versionSource || null, books: [], verses: 0 });
         }
         const src = used.get(key);
-        src.books.push(book);
+        if (src.books.indexOf(book) < 0) src.books.push(book);
         src.verses += added;
       }
-      if (!merged.size) continue;
-      const doc = noteDoc(`${cm.en} on ${b.en}`, book, merged);
+      if (!merged.size && !intro.length) continue;
+      const doc = noteDoc(`${cm.en} on ${b.en}`, book, merged, intro);
       const text = F.writeNotes(doc);
       const again = F.parseNotes(text);
-      if (F.writeNotes(again) !== text || again.warnings.length) {
-        throw new Error(`Commentators/${id}/${book}-${lang}.md is not canonical: ${again.warnings.slice(0, 3).join('; ')}`);
+      const canon = F.writeNotes(again);
+      if (canon !== text || again.warnings.length) {
+        const a = text.split('\n'), b = canon.split('\n'), i = a.findIndex((l, k) => l !== b[k]);
+        throw new Error(`Commentators/${id}/${book}-${lang}.md is not canonical: ${again.warnings.slice(0, 3).join('; ')}` +
+          (i >= 0 ? `\n  line ${i + 1}: ${JSON.stringify(a[i]).slice(0, 200)}\n  canon: ${JSON.stringify(b[i]).slice(0, 200)}` : ''));
       }
       fs.writeFileSync(path.join(dir, `${book}-${lang}.md`), text);
       (entry.books[book] = entry.books[book] || []).push(lang);
@@ -251,7 +316,8 @@ async function build(id, cm) {
 function readme(list) {
   const out = ['# Commentators', '',
     'The classical commentaries the reader shows beside the commentary, one folder each, with a file per book and language (`{book}-he.md`, `{book}-en.md`) in the commentary\'s format, numbered as Mechon Mamre numbers the verses. `index.json` lists them for the reader.', '',
-    'They are generated from [Sefaria](https://www.sefaria.org)\'s texts by `tools/commentators.mjs` in the reader\'s repository, whose downloads are kept in `Original/Sefaria/`. Don\'t edit them by hand; fix the tool and run it again.', ''];
+    'They are generated from [Sefaria](https://www.sefaria.org)\'s texts by `tools/commentators.mjs` in the reader\'s repository, whose downloads are kept in `Original/Sefaria/`. Don\'t edit them by hand; fix the tool and run it again.', '',
+    'A commentator\'s introductions (Ramban\'s, Sforno\'s) stand at the head of its book\'s file, each under its name. The footnotes some translations have on Sefaria (Chavel\'s annotations to Ramban) are left out; the downloads keep them.', ''];
   for (const c of list) {
     const name = n => byId.get(n).en;
     out.push(`## ${c.en} (${c.he})`, '', c.full + '.', '',

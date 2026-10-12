@@ -234,10 +234,14 @@
             if (d.base !== s) sec.stale[layer] = true;
           });
         };
-        /* The commentators' files are asked for only where the index lists them. */
+        /* The commentators' files are asked for only where the index lists
+           them, and not for those the Display menu hides (they are large:
+           several megabytes a book). */
         const cms = lib.index().then(function (ix) {
           const out = [];
+          const hidden = TR.device.get('cmHidden') || [];
           ix.commentators.forEach(function (c) {
+            if (hidden.indexOf(c.id) >= 0) return;
             (c.books[id] || []).forEach(function (lang) { out.push(F.cmLayer(c.id, lang)); });
           });
           return out;
@@ -378,6 +382,12 @@
     indexP = null;
     aliyotP = null;
     sections.clear();
+  });
+
+  /* A commentator shown or hidden: the books are read again, with or
+     without its files. */
+  TR.bus.on('device', function (patch) {
+    if ('cmHidden' in patch) sections.clear();
   });
 
 })(window.TR);

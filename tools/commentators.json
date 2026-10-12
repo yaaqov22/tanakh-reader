@@ -1,4 +1,15 @@
 {
+  "rashi": {
+    "en": "Rashi",
+    "he": "רש\"י",
+    "full": "Rabbi Shlomo Yitzchaki (1040–1105)",
+    "sefaria": "Rashi on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["Rosenbaum and A.M. Silbermann", "Metsudah", "On Your Way"],
+      "en": ["Rosenbaum and A.M. Silbermann", "Metsudah", "Sefaria Community Translation"]
+    }
+  },
   "rashbam": {
     "en": "Rashbam",
     "he": "רשב\"ם",
@@ -7,6 +18,28 @@
     "books": ["01", "02", "03", "04", "05"],
     "versions": {
       "he": ["daat", "Wikisource Mikraot Gedolot"],
+      "en": ["Eliyahu Munk, HaChut Hameshulash", "Sefaria Community Translation"]
+    }
+  },
+  "ramban": {
+    "en": "Ramban",
+    "he": "רמב\"ן",
+    "full": "Rabbi Moses ben Nachman, Nachmanides (1194–1270)",
+    "sefaria": "Ramban on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["Vocalized Edition", "On Your Way"],
+      "en": ["Translated and annotated by Charles B. Chavel", "Sefaria Community Translation"]
+    }
+  },
+  "sforno": {
+    "en": "Sforno",
+    "he": "ספורנו",
+    "full": "Rabbi Obadiah Sforno (c. 1475–1550)",
+    "sefaria": "Sforno on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["Vocalized Edition", "On Your Way"],
       "en": ["Eliyahu Munk, HaChut Hameshulash", "Sefaria Community Translation"]
     }
   }

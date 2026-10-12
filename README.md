@@ -13,7 +13,7 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 | English | `et002` (JPS 1917) | |
 | Commentary | yours | Editable. |
 | Review notes | yours | Editable, and signed with your name and the date. |
-| Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries, so far Rashbam on the Torah, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side). Generated (`tools/commentators.mjs`), not edited. |
+| Commentators | [Sefaria](https://www.sefaria.org) | The classical commentaries on the Torah, so far Rashi, Rashbam, Ramban and Sforno, each in Hebrew and English. The Display menu chooses which show, and in Hebrew, English or both (side by side). Generated (`tools/commentators.mjs`), not edited. |
 | MT links | the [Mishneh Torah](https://github.com/yaaqov22/mishneh-torah) | Every halakhah that quotes the verse: its name, chapter and number, linked to it in [MT Reader](https://yaaqov22.github.io/mt-reader/), then its text. Generated (`tools/mt-links.mjs`), not edited. |
 
 The texts themselves are read-only. Only the commentary and review notes are edited.
@@ -84,11 +84,11 @@ It reads the sibling checkouts `../mishneh-torah` (the texts) and `../mt-reader`
 "$NODE" tools/commentators.mjs --fetch
 ```
 
-`tools/commentators.json` lists them. Each has its names, its Sefaria title (`"Rashbam on {book}"`), the books it covers, and for each language the Sefaria versions to take, in order of preference (a part of the version's title is enough: `"daat"`). A verse's comments come from the first version that has any on it, so a later one only fills an earlier one's gaps: Rashbam's Hebrew is Da'at's (public domain), with the four verses of Genesis it lacks from Wikisource's Mikraot Gedolot; his English is Eliyahu Munk's (CC-BY), with the 44 verses it lacks from Sefaria's community translation (CC0).
+`tools/commentators.json` lists them. Each has its names, its Sefaria title (`"Rashbam on {book}"`), the books it covers, and for each language the Sefaria versions to take, in order of preference (a part of the version's title is enough: `"daat"`). A verse's comments come from the first version that has any on it, so a later one only fills an earlier one's gaps: Rashbam's Hebrew is Da'at's (public domain), with the four verses of Genesis it lacks from Wikisource's Mikraot Gedolot; his English is Eliyahu Munk's (CC-BY), with the 44 verses it lacks from Sefaria's community translation (CC0). Rashi is Rosenbaum and Silbermann's edition (public domain), Hebrew and English, with a few verses from Metsudah's (CC-BY); Ramban is Sefaria's vocalized Hebrew and Chavel's English (CC-BY); Sforno is the vocalized Hebrew and Munk's English. `Commentators/README.md` in the texts has every version and its licence.
 
 `--fetch` downloads the versions into the texts' `Original/Sefaria/`; without it the tool rebuilds from what is there. It writes `../tanakh/Commentators/<id>/{book}-he.md` and `-en.md`, and `Commentators/index.json` (what the reader lists: each commentator, its books and languages, and its sources) and `README.md` (the sources and their licences), replacing what is there for the commentators it builds (`--only rashbam` builds one).
 
-Sefaria numbers the verses as most Bibles do. The tool renumbers them to Mechon Mamre's, which differ in Exodus 20 and Deuteronomy 5 (the first two commandments one verse), Joshua 21 (no verses 36–37) and Jeremiah 30–31 (Sefaria's 31:1 is 30:25). Each comment's HTML becomes Markdown, and the words it comments on, where they stand plainly at its start, are bolded.
+Sefaria numbers the verses as most Bibles do. The tool renumbers them to Mechon Mamre's, which differ in Exodus 20 and Deuteronomy 5 (the first two commandments one verse), Joshua 21 (no verses 36–37) and Jeremiah 30–31 (Sefaria's 31:1 is 30:25). Each comment's HTML becomes Markdown, its footnotes left out (Chavel's annotations to Ramban), and the words it comments on, where they stand plainly at its start, are bolded. A version's introductions (Ramban's, Sforno's) open its book's file; the reader doesn't show them yet.
 
 To add a commentator, add it to `tools/commentators.json` (Sefaria's versions of a text are listed at `https://www.sefaria.org/api/texts/versions/<title>`) and run the tool with `--fetch --only <id>`. The reader needs nothing more.
 
