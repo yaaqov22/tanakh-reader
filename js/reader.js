@@ -73,12 +73,15 @@
 
    COMMENTATORS. The classical commentaries (Rashbam …, Commentators/ in the
    texts, generated from Sefaria by tools/commentators.mjs) are notes layers
-   too, read-only, each in its Hebrew and its English: between the review
-   notes and the MT links, one block each, the two languages side by side.
-   Which commentators show, and in which language, are the Display menu's;
-   so is whether the commentary, the digest, the review notes and the MT
-   links show (cmHidden holds the ids of the layers and commentators that
-   don't).
+   too, read-only, each in its Hebrew and its English: one block each, the
+   two languages side by side.
+
+   THE PANE'S ORDER (PANE_ORDER): review notes, commentary, MT links, the
+   Noahide Digest, then the commentators, alphabetically by their English
+   names. The Display menu lists them so, each to show or hide
+   (lib.shows()); by default one's own notes, the MT links and the digest
+   show and the commentators don't. It also chooses the commentators'
+   language.
    The pane's bar counts them all together, under one icon.
 
    FOLDING. Each block in the pane folds away from its heading, and stays
@@ -122,28 +125,34 @@
   /* The notes layers under each verse. The MT links (the halakhot of the
      Mishneh Torah that quote the verse, tools/mt-links.mjs) show and hide as
      the others do, but are generated, and never edited here. */
-  let ANN = ['co', 'digest', 'notes', 'mt'];
+  let ANN = ['notes', 'co', 'mt', 'digest'];
   const ANN_TITLE = { co: 'Commentary', digest: 'Noahide Digest', notes: 'Review notes', mt: 'MT links' };
   const ANN_ICON = { co: 'comment', digest: 'digest', notes: 'note', mt: 'link' };
   const editable = function (layer) { return layer === 'co' || layer === 'notes' || layer === 'digest'; };
 
-  /* The commentators on show (lib.index()'s, less those the Display menu
-     hides), id → { id, en, he, full, books }. Each is a notes layer named by
-     its id, after the review notes and before the MT links. */
+  /* The commentators on show (lib.index()'s that lib.shows()), id → { id,
+     en, he, full, books }, alphabetically. Each is a notes layer named by
+     its id, after the others. */
   const CM = new Map();
   const isCm = function (layer) { return CM.has(layer); };
 
-  /* The notes layers on show: those the Display menu hasn't hidden, in the
-     pane's order. */
+  /* The notes layers, in the pane's order (and the Display menu's); the
+     commentators follow them. */
+  const PANE_ORDER = ['notes', 'co', 'mt', 'digest'];
+
+  /* The commentators alphabetically, by their English names. */
+  function commentatorsAZ() {
+    return lib.commentators.slice().sort(function (a, b) { return a.en.localeCompare(b.en); });
+  }
+
+  /* The notes layers on show (lib.shows()), in the pane's order. */
   function syncCommentators() {
-    const hidden = TR.device.get('cmHidden') || [];
-    const shown = function (id) { return hidden.indexOf(id) < 0; };
     CM.clear();
-    lib.commentators.forEach(function (c) {
-      if (shown(c.id)) CM.set(c.id, c);
+    commentatorsAZ().forEach(function (c) {
+      if (lib.shows(c.id)) CM.set(c.id, c);
       LAYER_NAME[c.id] = ANN_TITLE[c.id] = c.en;
     });
-    ANN = ['co', 'digest', 'notes'].filter(shown).concat(Array.from(CM.keys()), shown('mt') ? ['mt'] : []);
+    ANN = PANE_ORDER.filter(lib.shows).concat(Array.from(CM.keys()));
   }
   const showing = function (layer) { return ANN.indexOf(layer) >= 0; };
 
@@ -887,23 +896,16 @@
       UI.el('div.dm-head', { text: 'Hebrew on the' }),
       segs('heSide', 'Hebrew on the', { left: 'Left', right: 'Right' }),
 
-      /* The commentators to show in the notes pane, and in which language. */
-      /* What the notes pane shows: one's own notes, the digest, each
-         commentator and the MT links, each on or off; and the commentators'
-         language. */
+      /* What the notes pane shows, in its order, each on or off; and the
+         commentators' language. */
       UI.el('div.dm-head', { text: 'Commentators' }),
-      UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, [
-        { id: 'digest', en: 'Noahide Digest' },
-        { id: 'co', en: 'Commentary' },
-        { id: 'notes', en: 'Review notes' }
-      ].concat(lib.commentators, [{ id: 'mt', en: 'MT links' }]).map(function (c) {
-        const hidden = TR.device.get('cmHidden') || [];
-        const on = hidden.indexOf(c.id) < 0;
+      UI.el('div', { role: 'group', 'aria-label': 'Commentators' }, PANE_ORDER.map(function (id) {
+        return { id: id, en: ANN_TITLE[id] };
+      }).concat(commentatorsAZ()).map(function (c) {
+        const on = lib.shows(c.id);
         return UI.el('button.dm-item', {
           type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', title: c.full || null,
-          onclick: function () {
-            repaint({ cmHidden: on ? hidden.concat([c.id]) : hidden.filter(function (x) { return x !== c.id; }) });
-          }
+          onclick: function () { repaint(lib.choiceFor(c.id, !on)); }
         }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: c.en }),
           c.he ? UI.el('span.dm-he', { lang: 'he', dir: 'rtl', text: c.he }) : null]);
       })),
@@ -1462,8 +1464,8 @@
   /* What the pane's Add menu offers, in order: a layer to add a note to,
      its name there, and its icon. Another kind of note is another line. */
   const ADDABLE = [
-    { layer: 'co', label: 'Comment', icon: 'commentAdd' },
-    { layer: 'notes', label: 'Note', icon: 'noteAdd' }
+    { layer: 'notes', label: 'Note', icon: 'noteAdd' },
+    { layer: 'co', label: 'Comment', icon: 'commentAdd' }
   ];
 
   /* In the pane's bar: Add, a menu of the kinds of note to add to its verse.

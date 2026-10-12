@@ -19,7 +19,7 @@ It is a sibling of [MT Reader](https://github.com/yaaqov22/mt-reader) and shares
 
 The texts themselves are read-only. Only the commentary, the Noahide Digest and review notes are edited.
 
-In the notes pane a verse's notes come in this order: commentary, Noahide Digest, review notes, each commentator, MT links. Its bar has Add (a menu of the kinds of note to add: a comment or a review note), the verse's bookmark, the previous and next verse, and Close. A verse's number is circled when it has commentary or review notes of your own, and underlined when it is bookmarked; hovering over it says how many notes of each kind it has, the commentators counted together.
+In the notes pane a verse's notes come in this order: review notes, commentary, MT links, Noahide Digest, then the commentators alphabetically. The Display menu lists them in the same order, each to show or hide; until you choose, your notes and commentary, the MT links and the Digest show, and the commentators don't. Its bar has Add (a menu of the kinds of note to add: a review note or a comment), the verse's bookmark, the previous and next verse, and Close. A verse's number is circled when it has commentary or review notes of your own, and underlined when it is bookmarked; hovering over it says how many notes of each kind it has, the commentators counted together.
 
 The editor grows with its text, the line being typed kept in view. The button at the end of its bar spreads it over the whole of the notes pane, to write in (focus), and back; the choice is kept for the next note. Each block folds away from its heading, and stays folded whatever verse is chosen until unfolded. The pane's bar counts each kind of note under its icon, the commentators all together under one (an open book).
 

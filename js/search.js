@@ -193,7 +193,7 @@
 
   TR.bus.on('source', function () { corpusP = null; });
   TR.bus.on('drafts', function () { corpusP = null; });
-  TR.bus.on('device', function (patch) { if ('cmHidden' in patch) corpusP = null; });
+  TR.bus.on('device', function (patch) { if ('paneShow' in patch) corpusP = null; });
 
   /* -------------------------------------------------------------- query */
 
