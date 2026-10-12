@@ -153,7 +153,7 @@ test('a verse keeps its line breaks, marks and qere through a round trip', () =>
 if (fs.existsSync(opt.root)) {
   const read = p => fs.readFileSync(path.join(opt.root, p), 'utf8');
   const walk = d => fs.readdirSync(path.join(opt.root, d)).map(f => `${d}/${f}`);
-  const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Notes', 'MT']
+  const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Digest', 'Notes', 'MT']
     .filter(d => fs.existsSync(path.join(opt.root, d))).flatMap(walk);
   /* The commentators: a folder each, beside their index.json and README. */
   if (fs.existsSync(path.join(opt.root, 'Commentators'))) {

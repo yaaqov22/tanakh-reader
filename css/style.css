@@ -30,6 +30,7 @@
   --up-soft: #e1ecf5;
   --mt: #5e5a8c;          /* MT links */
   --cm: #2f6f73;          /* the commentators */
+  --dg: #9a6a00;          /* the Noahide Digest */
 
   --radius: 12px;
   --radius-sm: 8px;
@@ -64,6 +65,7 @@
     --up-soft: #1f2d3a;
     --mt: #a9a3d8;
     --cm: #86c3c6;
+    --dg: #e2b858;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
   }
 }
@@ -88,6 +90,7 @@
   --up-soft: #1f2d3a;
   --mt: #a9a3d8;
   --cm: #86c3c6;
+  --dg: #e2b858;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
@@ -728,7 +731,7 @@ a.crumb:hover { color: var(--accent); }
 .grid:not(.show-tg) .cell.tg,
 .grid:not(.show-en) .cell.en,
 .row.general:not(.open) .cell.co,
-.cell.co.none, .cell.notes.none, .cell.mt.none, .cell.cm.none { display: none; }
+.cell.co.none, .cell.digest.none, .cell.notes.none, .cell.mt.none, .cell.cm.none { display: none; }
 
 .row.law { scroll-margin-top: calc(var(--topbar-h) + var(--rhead-h, 90px) + 12px); }
 .row.law.target { background: var(--target); border-radius: var(--radius-sm); }
@@ -839,6 +842,7 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .cell.notes .annhead { color: var(--accent); }
 .cell.mt .annhead { color: var(--mt); }
 .cell.cm .annhead { color: var(--cm); }
+.cell.digest .annhead { color: var(--dg); }
 .cell.cm .annhead .cm-he { font-family: var(--font-he); font-size: 14px; letter-spacing: 0; text-transform: none; }
 .notelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px 28px; align-items: start; }
 .notelist div.note { margin: 0; }
@@ -863,6 +867,7 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .annmark .mk-notes { color: var(--accent); }
 .annmark .mk-mt { color: var(--mt); }
 .annmark .mk-cm { color: var(--cm); }
+.annmark .mk-digest { color: var(--dg); }
 .annmark .changed { color: var(--edit); }
 .annmark .branched { color: var(--up); }
 .annmark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -873,7 +878,7 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .cell.en { font-family: var(--font); font-size: 17px; line-height: 1.6; }
 .cell.he, .cell.tg { font-family: var(--font-he); font-size: 21px; line-height: 1.65; text-align: justify; }
 .cell.tg { font-size: 19px; color: var(--text); }
-.cell.co, .cell.notes, .cell.mt, .cell.cm { font-size: 14.5px; line-height: 1.55; color: var(--dim); }
+.cell.co, .cell.digest, .cell.notes, .cell.mt, .cell.cm { font-size: 14.5px; line-height: 1.55; color: var(--dim); }
 .cell.empty .missing { color: var(--faint); font-style: italic; font-size: 14px; font-family: var(--font-ui); }
 
 .label {
@@ -1158,6 +1163,7 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .pane-count .mk-notes { color: var(--accent); }
 .pane-count .mk-mt { color: var(--mt); }
 .pane-count .mk-cm { color: var(--cm); }
+.pane-count .mk-digest { color: var(--dg); }
 .pane-bar .vp-tools { margin-inline-start: auto; }
 .pane-body { display: none; }
 .pane.open-pane .pane-body {
@@ -1271,6 +1277,42 @@ div.note.review { border-left-color: var(--accent); }
 div.note.mt { border-left-color: var(--mt); }
 div.note.mt a { color: var(--mt); }
 div.note.cm { border-left-color: var(--cm); }
+div.note.digest { border-left-color: var(--dg); }
+
+/* The star on a commentator's comment: in the Noahide Digest or not. It
+   stands at the comment's end corner, the text flowing round it. */
+.dg-star { float: right; width: 28px; height: 28px; min-width: 0; min-height: 0; margin: -4px -6px 2px 8px; color: var(--faint); }
+.cm-he .dg-star { float: left; margin: -4px 8px 2px -6px; }
+.dg-star svg { width: 16px; height: 16px; }
+.dg-star:hover { color: var(--dg); }
+.dg-star.on { color: var(--dg); }
+.dg-star.on svg path { fill: currentColor; }
+
+/* A digest entry: who it is from, then the comment in its language. */
+.dg-src { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-family: var(--font-ui); font-size: 12px; font-weight: 600; color: var(--dg); }
+.dg-src svg { width: 14px; height: 14px; }
+.dg-src .dg-he { font-family: var(--font-he); font-size: 14px; font-weight: 600; }
+.dg-src .dg-lang { font-weight: 400; color: var(--faint); }
+.dg-src.own { color: var(--faint); }
+.dg-body[lang="he"] p { font-family: var(--font-he); font-size: 17.5px; line-height: 1.6; color: var(--text); }
+
+/* The Noahide Digest's own screen: the entries in one stream, by book and
+   verse. */
+#screen-digest { max-width: 860px; margin: 0 auto; }
+#screen-digest .page-title { display: flex; align-items: center; gap: 10px; }
+#screen-digest .page-title svg { width: 24px; height: 24px; color: var(--dg); }
+.dg-opts { margin: 0 0 12px; }
+.dg-book { margin: 22px 0 0; }
+.dg-book-name { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; padding-bottom: 6px; font-size: 20px; border-bottom: 1px solid var(--line); }
+.dg-book-name .dg-he { font-family: var(--font-he); font-size: 18px; font-weight: 400; color: var(--dim); }
+.dg-verse { margin: 0 0 10px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.dg-ref { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.dg-ref:hover { text-decoration: underline; }
+.dg-text { margin: 4px 0 10px; font-family: var(--font); font-size: 15.5px; line-height: 1.55; color: var(--dim); }
+.dg-verse div.note.digest { position: relative; margin: 10px 0 0; padding-right: 30px; font-size: 14.5px; line-height: 1.55; }
+.dg-x { position: absolute; top: -4px; right: 0; width: 28px; height: 28px; min-width: 0; min-height: 0; color: var(--faint); }
+.dg-x svg { width: 14px; height: 14px; }
+.dg-x:hover { color: var(--bad); }
 /* A commentator's Hebrew and English side by side where there is room, each
    a single column; the Hebrew set as Hebrew, its rule on its right. */
 .cmcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px 28px; align-items: start; }
