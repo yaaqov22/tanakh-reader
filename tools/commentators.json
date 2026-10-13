@@ -21,6 +21,17 @@
       "en": ["Eliyahu Munk, HaChut Hameshulash", "Sefaria Community Translation"]
     }
   },
+  "ibnezra": {
+    "en": "Ibn Ezra",
+    "he": "אבן עזרא",
+    "full": "Rabbi Abraham ibn Ezra (c. 1089–1167)",
+    "sefaria": "Ibn Ezra on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["Piotrkow", "On Your Way", "Wikisource Mikraot Gedolot"],
+      "en": ["Strickman and Arthur M. Silver", "Sefaria Community Translation"]
+    }
+  },
   "ramban": {
     "en": "Ramban",
     "he": "רמב\"ן",
@@ -41,6 +52,17 @@
     "versions": {
       "he": ["Vocalized Edition", "On Your Way"],
       "en": ["Eliyahu Munk, HaChut Hameshulash", "Sefaria Community Translation"]
+    }
+  },
+  "orhachaim": {
+    "en": "Or HaChaim",
+    "he": "אור החיים",
+    "full": "Rabbi Chaim ibn Attar (1696–1743)",
+    "sefaria": "Or HaChaim on {book}",
+    "books": ["01", "02", "03", "04", "05"],
+    "versions": {
+      "he": ["Vocalized Edition", "On Your Way"],
+      "en": ["Or Hachayim, trans. Eliyahu Munk", "Sefaria Community Translation"]
     }
   }
 }

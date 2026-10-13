@@ -922,12 +922,19 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .seg.dispbtn .he { font-family: var(--font-he); font-size: 19px; line-height: 1; color: var(--text); }
 .seg.dispbtn svg { width: 15px; height: 15px; }
 .seg.dispbtn[aria-expanded="true"] { background: var(--panel-lit); }
+/* It scrolls within itself when the window is too short for all of it
+   (reader.js fitDisplay() measures where it opens, --dm-top). */
 .dispmenu {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   z-index: 40;
-  width: 252px;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - var(--dm-top, 110px) - 12px);
+  max-height: calc(100dvh - var(--dm-top, 110px) - 12px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -942,6 +949,10 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .hemodes .seg.glyph.he { flex: 1; width: auto; font-size: 18px; }
 .dispmenu .dm-segs { display: flex; }
 .dm-segs .seg { flex: 1; width: auto; font-family: var(--font-ui); font-size: 13px; }
+/* What the notes pane shows: a list in two columns, to keep the menu short. */
+.dm-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 4px; }
+.dm-list .dm-item { padding: 5px 4px; font-size: 13.5px; }
+.dm-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dm-item {
   display: flex;
   align-items: center;
@@ -1041,6 +1052,10 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .vp-tools .iconbtn { width: 30px; height: 30px; min-width: 30px; }
 .vp-tools .iconbtn svg { width: 18px; height: 18px; }
 .vp-tools .iconbtn:disabled { opacity: 0.3; cursor: default; }
+/* The pane bar's Add menu: fixed to the window, where reader.js places it
+   beside its button (the pane clips what overflows it). */
+.add-wrap { position: relative; }
+.add-menu { position: fixed; top: 0; right: auto; left: 0; min-width: 170px; cursor: default; }
 
 @media (max-width: 640px) {
   .scroll { grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
@@ -1295,24 +1310,6 @@ div.note.digest { border-left-color: var(--dg); }
 .dg-src .dg-lang { font-weight: 400; color: var(--faint); }
 .dg-src.own { color: var(--faint); }
 .dg-body[lang="he"] p { font-family: var(--font-he); font-size: 17.5px; line-height: 1.6; color: var(--text); }
-
-/* The Noahide Digest's own screen: the entries in one stream, by book and
-   verse. */
-#screen-digest { max-width: 860px; margin: 0 auto; }
-#screen-digest .page-title { display: flex; align-items: center; gap: 10px; }
-#screen-digest .page-title svg { width: 24px; height: 24px; color: var(--dg); }
-.dg-opts { margin: 0 0 12px; }
-.dg-book { margin: 22px 0 0; }
-.dg-book-name { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; padding-bottom: 6px; font-size: 20px; border-bottom: 1px solid var(--line); }
-.dg-book-name .dg-he { font-family: var(--font-he); font-size: 18px; font-weight: 400; color: var(--dim); }
-.dg-verse { margin: 0 0 10px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
-.dg-ref { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
-.dg-ref:hover { text-decoration: underline; }
-.dg-text { margin: 4px 0 10px; font-family: var(--font); font-size: 15.5px; line-height: 1.55; color: var(--dim); }
-.dg-verse div.note.digest { position: relative; margin: 10px 0 0; padding-right: 30px; font-size: 14.5px; line-height: 1.55; }
-.dg-x { position: absolute; top: -4px; right: 0; width: 28px; height: 28px; min-width: 0; min-height: 0; color: var(--faint); }
-.dg-x svg { width: 14px; height: 14px; }
-.dg-x:hover { color: var(--bad); }
 /* A commentator's Hebrew and English side by side where there is room, each
    a single column; the Hebrew set as Hebrew, its rule on its right. */
 .cmcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px 28px; align-items: start; }
@@ -1494,6 +1491,20 @@ div.note.branched.changed { border-left-color: var(--edit); }
   direction: ltr;
 }
 .edit-status { flex: 1; }
+.edit-max { width: 30px; height: 30px; min-width: 30px; min-height: 0; }
+.edit-max svg { width: 16px; height: 16px; }
+/* Focus: the editor over the whole of the pane's body (editor.js places it
+   there), the text filling it and the bar along its foot. */
+.editor.max {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 8px;
+  background: var(--panel);
+}
+.editor.max .edit-area { flex: 1; min-height: 0; height: auto; resize: none; overflow: auto; }
+.editor.max .edit-bar { flex: none; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line-soft); }
 .edit-hint { font-family: ui-monospace, Consolas, monospace; }
 .edit-error { margin: 6px 0 0; font-family: var(--font-ui); font-size: 13px; color: var(--bad); direction: ltr; text-align: left; }
 .btn.small { min-height: 30px; padding: 3px 12px; font-size: 13px; }

@@ -110,7 +110,9 @@ const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 /* Sefaria's footnotes, left out: the marker, <sup class="footnote-marker">,
    and the note itself, <i class="footnote">, which may hold <i>s of its own. */
 function dropFootnotes(s) {
-  s = s.replace(/<sup class="footnote-marker">[^<]*<\/sup>/g, '');
+  /* The markers, with a class or without (Strickman's "<sup>1</sup>", the
+     Piotrków edition's "<sup>54)</sup>"). */
+  s = s.replace(/<sup\b[^>]*>[^<]{0,8}<\/sup>/g, '');
   for (let at = s.indexOf('<i class="footnote">'); at >= 0; at = s.indexOf('<i class="footnote">')) {
     const tag = /<(\/?)i\b[^>]*>/g;
     tag.lastIndex = at;
@@ -124,16 +126,45 @@ function dropFootnotes(s) {
   return s;
 }
 
+/* Bold and italics that open and close in pairs: a closing tag with nothing
+   open (Sefaria's texts have some, left from footnotes) and an opening tag
+   never closed are dropped, so that no stray * is left in the Markdown. */
+function balanced(s) {
+  const tag = /<(\/?)(b|strong|i|em)\b[^>]*>/gi;
+  const open = [];      // [kind, index of its tag in the list]
+  const drop = new Set();
+  const tags = [];
+  let m;
+  while ((m = tag.exec(s))) {
+    const kind = /^(b|strong)$/i.test(m[2]) ? 'b' : 'i';
+    tags.push({ at: m.index, len: m[0].length });
+    const i = tags.length - 1;
+    if (!m[1]) { open.push([kind, i]); continue; }
+    const k = open.map(o => o[0]).lastIndexOf(kind);
+    if (k < 0) { drop.add(i); continue; }
+    open.splice(k).slice(1).forEach(o => drop.add(o[1]));   // tags left open inside it
+  }
+  open.forEach(o => drop.add(o[1]));
+  let out = '', from = 0;
+  tags.forEach((t, i) => {
+    if (!drop.has(i)) return;
+    out += s.slice(from, t.at);
+    from = t.at + t.len;
+  });
+  return out + s.slice(from);
+}
+
 /* One comment as Markdown paragraphs: Sefaria's HTML (<b>, <i>, <br>,
    <small> …) read as Markdown or dropped, its footnotes left out, its line
    breaks made paragraphs, and the words it comments on bolded where they
    stand plainly at the start (lemma()). */
 function paragraphs(html, lang, lemma = true) {
-  let s = dropFootnotes(String(html))
+  let s = balanced(dropFootnotes(String(html))
+    .replace(/<(b|strong|i|em)\b[^>]*>\s*<\/\1>/gi, ''))          // empty, as Metsudah's markers are
+    .replace(/&lt;\/?underline&gt;/g, '')                          // Munk's Or HaChaim, escaped
     .replace(/\\/g, '\\\\').replace(/\*/g, '\\*')
     .replace(/\[([^\]]*)\]\(/g, '\\[$1\\](')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<(b|strong|i|em)\b[^>]*>\s*<\/\1>/gi, '')           // empty, as Metsudah's markers are
     .replace(/<(b|strong|i|em)\b[^>]*>(\s+)/gi, '$2<$1>')           // spaces outside the marks
     .replace(/(\s+)<\/(b|strong|i|em)>/gi, '</$2>$1')
     .replace(/<\/?(b|strong)\b[^>]*>/gi, '**')
@@ -143,6 +174,7 @@ function paragraphs(html, lang, lemma = true) {
       if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : +e.slice(1));
       return ENTITIES[e.toLowerCase()] ?? m;
     })
+    .replace(/<\/?(?:b|i|u|em|strong|span|underline)\b[^>]*>/gi, '')   // tags escaped in the source, now decoded
     .replace(/\*\*(\s*)\*\*/g, '$1');
   const paras = s.split(/\s*\n\s*/).map(p => p.replace(/[ \t ]+/g, ' ').trim()).filter(Boolean)
     .map(p => p.replace(/^\*\*\s*\*\*/, ''));
@@ -317,7 +349,7 @@ function readme(list) {
   const out = ['# Commentators', '',
     'The classical commentaries the reader shows beside the commentary, one folder each, with a file per book and language (`{book}-he.md`, `{book}-en.md`) in the commentary\'s format, numbered as Mechon Mamre numbers the verses. `index.json` lists them for the reader.', '',
     'They are generated from [Sefaria](https://www.sefaria.org)\'s texts by `tools/commentators.mjs` in the reader\'s repository, whose downloads are kept in `Original/Sefaria/`. Don\'t edit them by hand; fix the tool and run it again.', '',
-    'A commentator\'s introductions (Ramban\'s, Sforno\'s) stand at the head of its book\'s file, each under its name. The footnotes some translations have on Sefaria (Chavel\'s annotations to Ramban) are left out; the downloads keep them.', ''];
+    'A commentator\'s introductions (Ramban\'s, Sforno\'s) stand at the head of its book\'s file, each under its name. The footnotes some translations have on Sefaria (Chavel\'s annotations to Ramban, Strickman\'s to Ibn Ezra) are left out; the downloads keep them.', ''];
   for (const c of list) {
     const name = n => byId.get(n).en;
     out.push(`## ${c.en} (${c.he})`, '', c.full + '.', '',

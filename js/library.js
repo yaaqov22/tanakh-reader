@@ -116,6 +116,27 @@
     /* The commentators, as the index last loaded lists them (index()). */
     commentators: [],
 
+    /* Whether the notes pane shows notes layer or commentator `id`: as
+       chosen in the Display menu (paneShow: id → true or false), and where
+       nothing has been chosen, by default: one's own notes, the MT links
+       and the digest shown, the commentators not (so a commentator added
+       later starts hidden). Before paneShow, cmHidden listed what was
+       hidden; one with anything in it is a choice already made, and kept. */
+    shows: function (id) {
+      const choice = TR.device.get('paneShow') || {};
+      if (Object.prototype.hasOwnProperty.call(choice, id)) return !!choice[id];
+      const hidden = TR.device.get('cmHidden') || [];
+      if (hidden.length) return hidden.indexOf(id) < 0;
+      return F.NOTE_LAYERS.indexOf(id) >= 0;
+    },
+
+    /* The choice of whether `id` shows, as lib.shows() reads it. */
+    choiceFor: function (id, on) {
+      const choice = Object.assign({}, TR.device.get('paneShow') || {});
+      choice[id] = !!on;
+      return { paneShow: choice };
+    },
+
     /* index.json, shaped for the screens:
          books[]       the three divisions, Torah, Nevi'im, Ketuvim, each
                        { id, en, he, sections: [book] } (a "section" is a book)
@@ -235,13 +256,12 @@
           });
         };
         /* The commentators' files are asked for only where the index lists
-           them, and not for those the Display menu hides (they are large:
-           several megabytes a book). */
+           them, and only for those the notes pane shows (lib.shows(); they
+           are large: several megabytes a book). */
         const cms = lib.index().then(function (ix) {
           const out = [];
-          const hidden = TR.device.get('cmHidden') || [];
           ix.commentators.forEach(function (c) {
-            if (hidden.indexOf(c.id) >= 0) return;
+            if (!lib.shows(c.id)) return;
             (c.books[id] || []).forEach(function (lang) { out.push(F.cmLayer(c.id, lang)); });
           });
           return out;
@@ -359,20 +379,6 @@
 
     HE_MODES: HE_MODES,
 
-    /* One layer of a book, parsed, its draft applied (null if the book has
-       no such file), without reading the rest of the book: for the screens
-       that want one layer of every book (the Noahide Digest). A book already
-       read gives its own. */
-    layer: function (id, layer) {
-      if (sections.has(id)) return sections.get(id).then(function (sec) { return sec[layer] || null; });
-      const path = F.pathOf(id, layer);
-      return TR.drafts.ready().then(function () {
-        const d = TR.drafts.get(path);
-        if (d) return d.text === null ? null : F.parse(d.text, layer);
-        return TR.source.text(path).then(function (s) { return s === null ? null : F.parse(s, layer); });
-      });
-    },
-
     /* Notes (commentary or review) anchored to a law, keyed "chapter:law". */
     notesFor: function (doc, key) {
       if (!doc) return [];
@@ -401,7 +407,7 @@
   /* A commentator shown or hidden: the books are read again, with or
      without its files. */
   TR.bus.on('device', function (patch) {
-    if ('cmHidden' in patch) sections.clear();
+    if ('paneShow' in patch) sections.clear();
   });
 
 })(window.TR);
