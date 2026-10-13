@@ -907,6 +907,11 @@
       UI.el('div.dm-head', { text: 'Hebrew on the' }),
       segs('heSide', 'Hebrew on the', { left: 'Left', right: 'Right' }),
 
+      /* Where the chosen verse's notes show (at the bottom whatever was
+         chosen while the window is too narrow for a side). */
+      UI.el('div.dm-head', { text: 'Notes pane' }),
+      segs('panePos', 'Notes pane', paneLabels),
+
       /* What the notes pane shows, in its order, each on or off; and the
          commentators' language. */
       UI.el('div.dm-head', { text: 'Commentators' }),
@@ -923,13 +928,7 @@
       lib.commentators.length ? [
         UI.el('p.dm-sub', { text: 'The commentators in' }),
         segs('cmLang', 'The commentators\u2019 language', { he: 'Hebrew', en: 'English', both: 'Both' })
-      ] : null,
-
-      /* Where the chosen verse's notes show. */
-      UI.el('div.dm-head', { text: 'Notes pane' }),
-      segs('panePos', 'Notes pane', paneLabels),
-      UI.el('p.dm-sub', { text: 'Select a verse to see its commentary, Noahide Digest, review notes, commentators and MT links there.' +
-        (window.innerWidth < PANE_SIDE_FROM ? ' At the bottom while the window is this narrow.' : '') })
+      ] : null
     ]);
     menu.hidden = !displayOpen;
     return UI.el('div.dispwrap', [UI.el('div.segs', [btn]), menu]);
@@ -1479,23 +1478,32 @@
     { layer: 'co', label: 'Comment', icon: 'commentAdd' }
   ];
 
-  /* In the pane's bar: Add, a menu of the kinds of note to add to its verse.
-     It opens under the button, or above it when the pane is shut at the
-     foot of the screen; a click elsewhere or Escape closes it. */
-  function addMenu(ctx, key, pos, isOpen) {
+  /* In the pane's bar: Add, a menu of the kinds of note to add to its verse;
+     a click elsewhere or Escape closes it. It is placed against the window
+     (place()), not the pane, which clips what overflows it: under the
+     button, or above it where there is no room below (the pane shut at the
+     foot of the screen), and kept on the screen (the pane shut to a side). */
+  function addMenu(ctx, key) {
     const can = ADDABLE.filter(function (a) { return showing(a.layer); });
     if (!can.length) return null;
     const items = can.map(function (a) {
       return UI.el('button', { type: 'button', role: 'menuitem', onclick: function () { show(false); addNote(ctx, key, a.layer, ''); } },
         [TR.icons[a.icon](), UI.el('span.mi-label', { text: a.label })]);
     });
-    const menu = UI.el('div.menu.add-menu' + (pos === 'bottom' && !isOpen ? '.up' : ''), { role: 'menu', 'aria-label': 'Add', hidden: true }, items);
+    const menu = UI.el('div.menu.add-menu', { role: 'menu', 'aria-label': 'Add', hidden: true }, items);
     const btn = UI.el('button.iconbtn.vp-add', {
       type: 'button', title: 'Add…', 'aria-label': 'Add', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
       onclick: function () { show(menu.hidden); }
     }, [TR.icons.plus()]);
     const wrap = UI.el('div.menuwrap.add-wrap', [btn, menu]);
     function away(e) { if (!wrap.contains(e.target)) show(false); }
+    function place() {
+      const b = btn.getBoundingClientRect(), w = menu.offsetWidth, h = menu.offsetHeight, gap = 6, edge = 8;
+      const below = b.bottom + gap + h <= window.innerHeight - edge;
+      menu.style.top = (below ? b.bottom + gap : Math.max(edge, b.top - gap - h)) + 'px';
+      menu.style.left = Math.min(Math.max(edge, b.right - w), window.innerWidth - w - edge) + 'px';
+    }
+    function shut() { show(false); }
     function key_(e) {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show(false); btn.focus(); return; }
       const at = items.indexOf(document.activeElement);
@@ -1507,9 +1515,12 @@
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
       document.removeEventListener('click', away, true);
       document.removeEventListener('keydown', key_, true);
+      window.removeEventListener('resize', shut);
       if (!on) return;
+      place();
       document.addEventListener('click', away, true);
       document.addEventListener('keydown', key_, true);
+      window.addEventListener('resize', shut);
       items[0].focus();
     }
     return wrap;
@@ -1584,7 +1595,7 @@
         }))
         : UI.el('span.pane-count.none', { text: 'No notes' })) : null,
       v ? UI.el('div.vp-tools', [
-        addMenu(ctx, key, pos, open),
+        addMenu(ctx, key),
         bookmarkBtn(ctx, key),
         stepBtn(s, v, -1), stepBtn(s, v, 1),
         closeBtn()

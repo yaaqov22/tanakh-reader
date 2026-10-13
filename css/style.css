@@ -1052,12 +1052,10 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .vp-tools .iconbtn { width: 30px; height: 30px; min-width: 30px; }
 .vp-tools .iconbtn svg { width: 18px; height: 18px; }
 .vp-tools .iconbtn:disabled { opacity: 0.3; cursor: default; }
-/* The pane bar's Add menu: under its button, or above it when the pane is
-   shut at the foot of the screen. */
+/* The pane bar's Add menu: fixed to the window, where reader.js places it
+   beside its button (the pane clips what overflows it). */
 .add-wrap { position: relative; }
-.add-menu { min-width: 170px; cursor: default; }
-.add-menu.up { top: auto; bottom: calc(100% + 6px); }
-.pane.at-left .add-menu { right: auto; left: 0; }
+.add-menu { position: fixed; top: 0; right: auto; left: 0; min-width: 170px; cursor: default; }
 
 @media (max-width: 640px) {
   .scroll { grid-template-columns: minmax(0, 1fr) 40px; column-gap: 6px; }
