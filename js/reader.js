@@ -118,7 +118,7 @@
   const lib = TR.lib;
   let seq = 0;
   let nav = null;   // { prev, next } hrefs for the keyboard
-  let live = null;  // { grid, page }: what is on screen, for the selection toolbar
+  let live = null;  // { grid, page, title }: what is on screen, for the selection toolbar and reading aloud
 
   const LAYER_NAME = { he: 'Hebrew', tp: 'punctuated Hebrew', onq: 'Targum', onqk: 'Targum', en: 'English',
     co: 'commentary', digest: 'Noahide Digest', notes: 'review notes', mt: 'MT links' };
@@ -740,6 +740,7 @@
   document.addEventListener('selectionchange', TR.debounce(checkSel, 200));
   TR.bus.on('route', function (r) {
     if (r.id === 'read' || r.id === 'portion') return;
+    if (reading) stopReading();
     hideSel();
     document.body.classList.remove('paned');
   });
@@ -1702,6 +1703,12 @@
      verse with no notes yet (one is about to be added). */
   function choose(v, reveal, force) {
     if (!live || !live.verses) return Promise.resolve();
+    /* Choosing another verse while reading aloud reads on from there;
+       closing the pane, or adding a note, stops it. */
+    if (reading && !reading.moving) {
+      if (v && !force) return readFrom(v, reading.until);
+      stopReading();
+    }
     return TR.editor.close().then(function () {
       if (live && live.verses) show(v, reveal, force);
     });
@@ -1720,6 +1727,7 @@
     live.verses.panel = next;
     watchPane(next);
     live.grid.classList.toggle('chosen', !!chosen);
+    paintReading();
     if (reveal && v) {
       /* Into view if it is under the headers, or under the pane at the
          bottom. */
@@ -1733,6 +1741,249 @@
   function fixedTop() {
     const head = document.querySelector('.screen.on .rhead');
     return document.querySelector('.topbar').offsetHeight + (head ? head.offsetHeight : 0);
+  }
+
+  /* ------------------------------------------------------- reading aloud */
+
+  /* What is being read aloud (speech.js): the verse, where the reading
+     stops (`until`: one of SAY_STOP's, or 'one' for the verse alone), and
+     the page it is on. `moving` while the reading itself chooses the verse
+     it reads (which doesn't stop it), and `carry` while it turns to the next
+     chapter or portion. */
+  let reading = null;
+
+  const SAY_STOP = {
+    page: 'The end of the page or portion',
+    aliyah: 'The end of the aliyah',
+    verse: 'The end of the verse',
+    never: 'Keep reading until I stop it'
+  };
+  function sayStop() {
+    const s = TR.device.get('sayStop');
+    return SAY_STOP[s] ? s : 'page';
+  }
+
+  /* A verse's words to speak, in the languages chosen: the Hebrew from
+     Mechon Mamre's punctuated edition (whatever the Display menu shows),
+     whose punctuation the voice pauses at, and the English. Without a
+     Hebrew voice on the device, only the English. */
+  function verseSpeech(v) {
+    const S = TR.speech;
+    const want = TR.device.get('sayLang');
+    let langs = want === 'en' ? ['en'] : want === 'both' ? ['he', 'en'] : ['he'];
+    if (langs.indexOf('he') >= 0 && !S.voiceFor('he')) {
+      langs = ['en'];
+      if (!reading.warned) UI.toast('There is no Hebrew voice on this device, so the English is read. The reading options (beside the play button) say where to get one.', 5000);
+      reading.warned = true;
+    }
+    const text = function (doc) {
+      const ch = doc && doc.chapters.find(function (c) { return c.n === v.c; });
+      const law = ch && ch.laws.find(function (l) { return l.n === v.n; });
+      return law ? [law.text].concat(law.extra).join('\n') : '';
+    };
+    return langs.map(function (lang) {
+      return { lang: lang, text: lang === 'he' ? S.hebrew(text(v.ctx.raw.tp || v.ctx.raw.he)) : S.english(text(v.ctx.sec.en)) };
+    }).filter(function (it) { return it.text; });
+  }
+
+  /* Read verse `v` aloud, choosing it, and on until `until`. */
+  function readFrom(v, until) {
+    if (!TR.speech.supported) { UI.toast('This browser can’t read aloud.'); return Promise.resolve(); }
+    if (!v || !live) return Promise.resolve();
+    const r = reading = { v: v, until: until, page: live.title, moving: true, carry: false, warned: !!(reading && reading.warned) };
+    const items = verseSpeech(v);
+    if (items.length) {
+      TR.speech.speak(items, {
+        onDone: readNext,
+        onError: function (e) { UI.toast('Reading aloud stopped: ' + (e.error || 'the voice failed') + '.'); stopReading(); }
+      });
+    } else {
+      setTimeout(readNext, 0);   // a verse with nothing to read in the language chosen
+    }
+    return (same(v, chosen) ? Promise.resolve() : choose(v, true)).then(function () {
+      if (reading === r) r.moving = false;
+      paintReading();
+    });
+  }
+
+  /* After a verse: the next, unless the reading stops here (at the verse,
+     before the verse an aliyah begins at, at the page's end); at the page's
+     end, kept reading, the next chapter's or portion's first. A note being
+     written stops it. */
+  function readNext() {
+    const r = reading;
+    if (!r) return;
+    if (r.until === 'one' || r.until === 'verse' || TR.editor.active() || !live || !live.verses) { stopReading(); return; }
+    const s = live.verses;
+    const to = s.order[s.order.indexOf(s.byKey.get(r.v.sec + ' ' + r.v.key)) + 1];
+    if (to && !(r.until === 'aliyah' && s.aliyot.has(to.sec + ' ' + to.key))) { readFrom(to, r.until); return; }
+    if (!to && r.until === 'never' && nav && nav.next) {
+      r.carry = true;
+      location.hash = nav.next;
+      return;
+    }
+    stopReading();
+  }
+
+  function stopReading() {
+    reading = null;
+    if (TR.speech.supported) TR.speech.stop();
+    paintReading();
+  }
+
+  /* The play button, and p: read aloud from the chosen verse (or the one at
+     the top of the screen); while reading, stop, the verse staying chosen
+     so that playing again starts it over. */
+  function sayToggle() {
+    if (reading) { stopReading(); return; }
+    const s = live && live.verses;
+    if (!s) return;
+    const here = TR.reader.here();
+    readFrom(chosen && s.byKey.get(chosen.sec + ' ' + chosen.key) ||
+      here && s.byKey.get(here.sec + ' ' + here.key) || s.order[0], sayStop());
+  }
+
+  /* J and K: the next or previous verse, read alone. */
+  function sayStep(d) {
+    const s = live && live.verses;
+    if (!s) return;
+    const at = chosen ? s.order.indexOf(s.byKey.get(chosen.sec + ' ' + chosen.key)) : -1;
+    const to = at < 0 ? s.order[0] : s.order[at + d];
+    if (to) readFrom(to, 'one');
+  }
+
+  /* The verse being read lit in the text, and the play button saying what
+     it would do now. */
+  function paintReading() {
+    if (live && live.grid) {
+      live.grid.querySelectorAll('.speaking').forEach(function (el) { el.classList.remove('speaking'); });
+      if (reading && reading.page === live.title) {
+        live.grid.querySelectorAll(lit(reading.v)).forEach(function (el) { el.classList.add('speaking'); });
+      }
+    }
+    document.querySelectorAll('.say-btn').forEach(paintSay);
+  }
+
+  function paintSay(b) {
+    const icon = reading ? 'pause' : 'play';
+    const label = reading ? 'Stop reading (p); play starts the verse again'
+      : 'Read aloud from the chosen verse, or from the top of the screen (p)';
+    if (b._icon !== icon) { UI.fill(b, [TR.icons[icon]()]); b._icon = icon; }
+    b.setAttribute('aria-pressed', reading ? 'true' : 'false');
+    b.title = label;
+    b.setAttribute('aria-label', label);
+  }
+
+  /* The reading options, beside the play button: what is read, where it
+     stops, how fast, and in which voices. They stay open across the
+     repaints of the page, as the Display menu does. */
+  let sayOpen = false;
+
+  function setSayOpen(open) {
+    sayOpen = open;
+    const wrap = document.querySelector('.screen.on .saywrap');
+    if (!wrap) return;
+    const menu = wrap.querySelector('.saymenu');
+    if (open) fillSayMenu(menu);
+    menu.hidden = !open;
+    wrap.querySelector('.saymore').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) document.documentElement.style.setProperty('--dm-top', Math.round(menu.getBoundingClientRect().top) + 'px');
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!sayOpen || !document.contains(e.target)) return;   // a choice that has refilled the menu
+    const wrap = document.querySelector('.screen.on .saywrap');
+    if (!wrap || !wrap.contains(e.target)) setSayOpen(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !sayOpen) return;
+    e.preventDefault();   // this Escape is the menu's, not the reading's or the verse panel's
+    setSayOpen(false);
+    const b = document.querySelector('.screen.on .saymore');
+    if (b) b.focus();
+  });
+  if (TR.speech.supported) {
+    TR.speech.onVoices(function () {
+      const menu = sayOpen && document.querySelector('.screen.on .saymenu');
+      if (menu) fillSayMenu(menu);
+    });
+  }
+
+  /* Each choice is kept at once and takes effect from the next verse read;
+     the page isn't repainted, only the menu. */
+  function fillSayMenu(menu) {
+    const S = TR.speech;
+    const keep = function (key, value) {
+      const p = {};
+      p[key] = value;
+      TR.device.set(p);
+      fillSayMenu(menu);
+    };
+    /* A row of buttons choosing one of `opts` ([value, label], in order). */
+    const segs = function (key, label, opts) {
+      return UI.el('div.segs.dm-segs', { role: 'group', 'aria-label': label }, opts.map(function (o) {
+        const v = o[0];
+        return UI.el('button.seg', {
+          type: 'button', text: o[1], 'aria-pressed': String(TR.device.get(key)) === v ? 'true' : 'false',
+          onclick: function () { keep(key, key === 'sayRate' ? +v : v); }
+        });
+      }));
+    };
+    const voice = function (code, key, name) {
+      const all = S.voices(code);
+      if (!all.length) return null;
+      const sel = UI.select([{ value: '', label: 'The device’s choice (' + S.defaultVoice(code).name + ')' }].concat(all.map(function (v) {
+        return { value: v.voiceURI, label: v.name + (v.localService ? '' : ' (online)') };
+      })), TR.device.get(key), function () { keep(key, sel.value); });
+      sel.setAttribute('aria-label', name);
+      return sel;
+    };
+    const he = voice('he', 'sayVoiceHe', 'Hebrew voice');
+    const en = voice('en', 'sayVoiceEn', 'English voice');
+    const stop = sayStop();
+
+    UI.fill(menu, [
+      UI.el('div.dm-head', { text: 'Read' }),
+      segs('sayLang', 'Read', [['he', 'Hebrew'], ['en', 'English'], ['both', 'Both']]),
+      TR.device.get('sayLang') === 'both' ? UI.el('p.dm-sub', { text: 'Each verse in Hebrew, then English.' }) : null,
+
+      UI.el('div.dm-head', { text: 'Stop at' }),
+      UI.el('div', { role: 'radiogroup', 'aria-label': 'Stop at' }, Object.keys(SAY_STOP).map(function (k) {
+        return UI.el('button.dm-item.dm-one', {
+          type: 'button', role: 'radio', 'aria-checked': stop === k ? 'true' : 'false',
+          onclick: function () { keep('sayStop', k); }
+        }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: SAY_STOP[k] })]);
+      })),
+      UI.el('p.dm-sub', { text: stop === 'aliyah' ? 'On a chapter, which has no aliyot, the end of the page.'
+        : stop === 'never' ? 'From one chapter or portion into the next.' : 'J and K read the next or previous verse alone.' }),
+
+      UI.el('div.dm-head', { text: 'Speed' }),
+      segs('sayRate', 'Speed', [['0.7', '70%'], ['0.85', '85%'], ['1', '100%'], ['1.15', '115%'], ['1.3', '130%']]),
+
+      UI.el('div.dm-head', { text: 'Voices' }),
+      he ? UI.el('label.say-voice', [UI.el('span.dm-sub', { text: 'Hebrew' }), he])
+        : UI.el('p.dm-sub.bad', { text: 'There is no Hebrew voice on this device. Microsoft Edge has natural Hebrew voices (Avri and Hila) built in; ' +
+          'on Windows one can be added under Settings › Time & language › Speech; iPhones, iPads, Macs and Android phones have one.' }),
+      en ? UI.el('label.say-voice', [UI.el('span.dm-sub', { text: 'English' }), en])
+        : UI.el('p.dm-sub.bad', { text: 'There is no English voice on this device.' }),
+      UI.el('p.dm-sub', { text: 'The Hebrew is read from the punctuated edition: the qere for the ktiv, and the divine name as Adonai (or Elohim).' })
+    ]);
+  }
+
+  /* In the header: play (or stop), and beside it the reading options. */
+  function sayControls() {
+    if (!TR.speech.supported) return null;
+    const play = UI.el('button.seg.say-btn', { type: 'button', onclick: sayToggle });
+    paintSay(play);
+    const more = UI.el('button.seg.saymore', {
+      type: 'button', 'aria-haspopup': 'true', 'aria-expanded': sayOpen ? 'true' : 'false',
+      title: 'Reading aloud: what is read, where it stops, the speed and the voices', 'aria-label': 'Reading aloud options',
+      onclick: function () { setSayOpen(!sayOpen); }
+    }, [TR.icons.chevron()]);
+    const menu = UI.el('div.dispmenu.saymenu', { role: 'group', 'aria-label': 'Reading aloud' });
+    if (sayOpen) fillSayMenu(menu);
+    menu.hidden = !sayOpen;
+    return UI.el('div.saywrap', [UI.el('div.segs.say', { role: 'group', 'aria-label': 'Read aloud' }, [play, more]), menu]);
   }
 
   /* One text column set as a scroll, beside its numbers margin (at the
@@ -1819,7 +2070,7 @@
 
     const head = UI.el('header.rhead', [
       UI.el('div.rbar', [page.head, UI.el('div.toggles', [
-        layoutToggle(), displayMenu(page), marksToggle() ? UI.el('div.segs', [marksToggle()]) : null
+        layoutToggle(), displayMenu(page), sayControls(), marksToggle() ? UI.el('div.segs', [marksToggle()]) : null
       ])])
     ]);
     const notes = UI.el('div.rnotes', [TR.session.active() ? TR.session.line() : null, branchNote(ctxs, up)]);
@@ -1871,7 +2122,11 @@
     });
 
     nav = page.nav;
-    live = { grid: grid, page: page.key, verses: s, ro: null };
+    live = { grid: grid, page: page.key, title: page.docTitle, verses: s, ro: null };
+    /* Reading aloud carries on into the next chapter it turned to, and
+       stops at any other. */
+    const carried = reading && reading.page !== page.docTitle && reading.carry;
+    if (reading && reading.page !== page.docTitle) stopReading();
     show(chosen && s.byKey.get(chosen.sec + ' ' + chosen.key), false);
     hideSel();
     UI.crumbs(page.crumbs);
@@ -1914,6 +2169,7 @@
         if (arrived) el.scrollIntoView({ block: 'center' });
       }
     }
+    if (carried && s.order.length) readFrom(s.order[0], true);
   }
 
   /* The header sticks under the top bar; rows scrolled to must clear both. */
@@ -2172,11 +2428,15 @@
 
   /* ← and → turn chapters or portions, when the reader is open and nothing
      is being typed. j and k move the pane to the next and previous verse,
-     and Esc closes it. */
+     and Esc closes it (or first stops reading aloud). p reads aloud, and
+     stops; J and K read the next and previous verse alone. */
   document.addEventListener('keydown', function (e) {
     if (!onReader() || !nav || e.altKey || e.ctrlKey || e.metaKey) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (live && live.verses && e.key === 'p' && TR.speech.supported) { e.preventDefault(); sayToggle(); return; }
+    if (live && live.verses && (e.key === 'J' || e.key === 'K') && TR.speech.supported) { e.preventDefault(); sayStep(e.key === 'J' ? 1 : -1); return; }
+    if (reading && e.key === 'Escape' && !e.defaultPrevented && !TR.editor.active()) { stopReading(); return; }
     if (live && live.verses && (e.key === 'j' || e.key === 'k')) {
       const s = live.verses;
       const at = chosen ? s.order.indexOf(s.byKey.get(chosen.sec + ' ' + chosen.key)) : -1;

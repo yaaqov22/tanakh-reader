@@ -974,8 +974,18 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .dm-item[aria-pressed="true"] .dm-check,
 .dm-item[aria-checked="true"] .dm-check { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .dm-one .dm-check { border-radius: 50%; }
+/* Reading aloud: play (or stop), and beside it its options, in a menu
+   drawn as the Display menu is. */
+.saywrap { position: relative; }
+.seg.saymore { width: 22px; }
+.seg.saymore svg { width: 15px; height: 15px; }
+.seg.saymore[aria-expanded="true"] { background: var(--panel-lit); }
+.say-voice { display: block; margin-top: 6px; }
+.say-voice .dm-sub { display: block; margin: 0 4px 3px; }
+.say-voice select { width: 100%; }
+.dm-sub.bad { color: var(--bad); }
 @media (max-width: 480px) {
-  .dispwrap { position: static; }
+  .dispwrap, .saywrap { position: static; }
   .dispmenu { right: 8px; top: calc(100% + 2px); }
 }
 
@@ -1041,6 +1051,12 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 .sc-n.sel { color: var(--accent); background: var(--accent-soft); }
 .sc-n.marked { box-shadow: inset 0 -2px 0 var(--accent); }
 .sc-n:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* Reading aloud: the verse being read, underlined in the accent as the
+   reading moves through the page (over its chosen highlight). */
+.grid.linemode .row.law.speaking:not(.vpanel) { box-shadow: inset 3px 0 0 var(--accent); }
+.vs.speaking { text-decoration: underline 2px var(--accent); text-underline-offset: 0.35em; }
+.sc-n.speaking { color: var(--accent); }
 
 
 /* The pane's bar: the verse, and the tools for it. */
