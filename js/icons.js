@@ -109,6 +109,9 @@
     parallel: function () {
       return svg('<path d="M12 3.5v17"/><path d="M3.5 6.5h5.5M3.5 10h5.5M3.5 13.5h3.5M3.5 17h5.5M15 6.5h5.5M15 10h5.5M15 13.5h5.5M17 17h3.5"/>');
     },
+    /* Reading aloud: play, and while reading, stop (drawn as pause). */
+    play: function () { return svg('<path d="M8 5.5v13l10.5-6.5z"/>'); },
+    pause: function () { return svg('<path d="M8.5 5.5v13M15.5 5.5v13"/>'); },
     chevron: function () { return svg('<path d="m7 10 5 5 5-5"/>'); },
     check: function () { return svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'); },
     close: function () { return svg('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'); },

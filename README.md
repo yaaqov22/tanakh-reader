@@ -43,6 +43,25 @@ Everything else about how the text looks is in the **Display** menu, whose butto
 
 Ktiv and qere show as the written form followed by the read form in parentheses.
 
+### Reading aloud
+
+The play button in the reader's header (or **p**) reads aloud from the chosen verse, or from the verse at the top of the screen. Each verse is chosen and lit as it is read, and its notes follow in the pane. While it reads, the button (drawn as pause), **p** or **Esc** stops it. The verse stays chosen, so playing again starts that verse over. Choosing another verse while reading reads on from there. **J** and **K** (Shift+j and Shift+k) move to the next or previous verse and read it alone.
+
+The arrow beside the play button opens the reading options:
+- what is read: Hebrew, English, or both (each verse in Hebrew, then English);
+- where it stops: the end of the page or portion, the end of the aliyah, the end of the verse, or not until stopped (going on into the next chapter or portion);
+- the speed;
+- the voices.
+
+The options are kept on the device.
+
+The voices are the browser's own (the Web Speech API), so nothing leaves the device and there is no key. English has a voice everywhere. Hebrew depends on the device: Edge has natural Hebrew voices (Avri, Hila), iOS and macOS have Carmit, Android has Google's, and desktop Chrome often has none. Without one, the English is read. The Hebrew is read in modern pronunciation, not chanted, and as it is read aloud (`js/speech.js`):
+- it is read from Mechon Mamre's punctuated edition (`t002`), whatever the Display menu shows, so the voice pauses at its commas, colons, semicolons, full stops and dashes;
+- for ktiv and qere, the qere is read;
+- the divine name is read as Adonai, or as Elohim where it is pointed so (יְהוִה), keeping any prefix (לַיהוָה as לַאדֹנָי).
+
+`node tools/test-speech.mjs` checks the preparation over every verse.
+
 ## Running it
 
 The app is static files. During development it reads the texts from a sibling checkout, `../tanakh/`, with no token needed:
