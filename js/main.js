@@ -26,6 +26,7 @@
     home.appendChild(TR.icons.books());
     TR.bus.on('route', function (r) { home.classList.toggle('on', r.id === 'books'); });
 
+    weekLink();
     bookmarkMenu();
     ghMenu();
 
@@ -61,6 +62,59 @@
       else if (e.key === 'ArrowUp') { e.preventDefault(); items[(at - 1 + items.length) % items.length].focus(); }
     });
     return open;
+  }
+
+  /* This week's parashah (week.js), linking to it: "Shabbat Chayei Sarah",
+     with a special reading beside it ("+ Sheqalim"). Asked again when the
+     week, the schedule or the texts change, and when the app comes back
+     into view (it may have been open since last week). */
+  function weekLink() {
+    const host = document.getElementById('week');
+    let shown = '';   // what is shown: the Shabbat, the schedule and the portions
+
+    const paint = function () {
+      TR.week.get().then(function (w) {
+        const what = [w.date, w.israel].concat(w.main.concat(w.extra).map(function (p) { return p.id; })).join('|');
+        if (what === shown) return mark();
+        shown = what;
+        if (!w.main.length) { host.hidden = true; UI.clear(host); return; }
+        const day = new Date(w.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        const where = w.israel ? 'in Israel' : 'outside Israel';
+        const link = function (p, cls, label) {
+          return UI.el('a.' + cls, {
+            href: UI.href('portion', [p.id]), 'data-portion': p.id,
+            title: (cls === 'wk-main' ? 'This week\'s parashah' : 'Also read this week') + ', Shabbat ' + day + ' (' +
+              where + '): ' + p.en
+          }, label);
+        };
+        const main = w.main[0];
+        UI.fill(host, [link(main, 'wk-main', [UI.el('span.wk-label', { text: 'Shabbat' }), UI.el('span.wk-name', { text: main.en })])]
+          .concat(w.extra.map(function (p) { return link(p, 'wk-extra', '+ ' + p.en.replace(/^Shabbat\s+/, '')); })));
+        host.hidden = false;
+        mark();
+      }, function (e) {
+        console.warn('[week]', e);
+      });
+    };
+
+    /* The link to the portion being read is lit. */
+    const mark = function () {
+      const r = UI.current();
+      host.querySelectorAll('a').forEach(function (a) {
+        a.classList.toggle('on', r.id === 'portion' && r.args[0] === a.getAttribute('data-portion'));
+      });
+    };
+
+    paint();
+    TR.bus.on('route', function () {
+      if (shown.split('|')[0] !== TR.week.shabbat()) paint();   // a new week, or not shown yet (offline)
+      else mark();
+    });
+    TR.bus.on('device', function (patch) { if (patch && 'weekIsrael' in patch) paint(); });
+    TR.bus.on('source', function () { shown = ''; paint(); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && shown.split('|')[0] !== TR.week.shabbat()) paint();
+    });
   }
 
   /* "24 Sep", or "24 Sep 2025" when not this year. */

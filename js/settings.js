@@ -129,6 +129,39 @@
     const name = UI.input({ value: d.name, autocomplete: 'off', spellcheck: 'false', placeholder: 'e.g. your GitHub login',
       onchange: function () { TR.device.set({ name: name.value.trim() }); UI.toast('Saved.'); } });
 
+    /* Translate (claude.js): the reader's own Anthropic API key and model. */
+    const claudeKey = UI.input({ type: 'password', value: d.claudeKey, autocomplete: 'off', spellcheck: 'false',
+      placeholder: 'sk-ant-…',
+      onchange: function () { TR.device.set({ claudeKey: claudeKey.value.trim() }); keyLine.textContent = ''; UI.toast('Saved.'); } });
+    const claudeModel = UI.select(TR.claude.MODELS, d.claudeModel, function () {
+      TR.device.set({ claudeModel: claudeModel.value });
+      UI.toast('Saved.');
+    });
+    const keyLine = UI.el('p.status');
+    const keyBtn = UI.btn('Check key', {
+      onclick: function () {
+        const k = claudeKey.value.trim();
+        keyLine.classList.remove('bad');
+        if (!k) { keyLine.textContent = 'Paste a key first.'; keyLine.classList.add('bad'); return; }
+        keyLine.textContent = 'Checking the key…';
+        TR.claude.checkKey(k, claudeModel.value).then(function (m) {
+          keyLine.textContent = 'The key works, and can use ' + (m.display_name || claudeModel.value) + '.';
+        }, function (e) {
+          keyLine.textContent = e.message;
+          keyLine.classList.add('bad');
+        });
+      }
+    });
+
+    /* This week's parashah, in the top bar (week.js). */
+    const schedule = UI.select([
+      { value: 'diaspora', label: 'Outside Israel' },
+      { value: 'israel', label: 'In Israel' }
+    ], d.weekIsrael ? 'israel' : 'diaspora', function () {
+      TR.device.set({ weekIsrael: schedule.value === 'israel' });
+      UI.toast('Saved.');
+    });
+
     const progress = UI.el('p.status');
     const dl = UI.btn('Download all texts', {
       onclick: function () {
@@ -174,6 +207,26 @@
       card('Editing', [
         UI.field('Your name', name, 'Signs the review notes you write: **name** date - note. Checking the token fills it in.'),
         UI.el('p.field-hint', [UI.el('a', { href: '#/changes', text: 'Changes on this device' })])
+      ]),
+      card('Translation (Claude)', [
+        UI.note('Select Hebrew or Targum in the reader and choose Translate: Claude gives a dictionary entry for a ' +
+          'single word, or a translation of a phrase.'),
+        UI.field('Anthropic API key', claudeKey,
+          'An Anthropic API key, which is separate from a Claude.ai subscription. Lookups are billed to your ' +
+          'Anthropic account, about 1–2¢ each on Opus and much less on Haiku. Set a monthly spend limit there. ' +
+          'The key is stored only on this device and sent only to api.anthropic.com.'),
+        UI.el('p.field-hint', [
+          UI.el('a', { href: 'https://console.anthropic.com/settings/keys', target: '_blank',
+            rel: 'noopener noreferrer', text: 'Create a key in the Anthropic Console' }),
+          ', then paste it above.'
+        ]),
+        UI.field('Model', claudeModel),
+        UI.el('div.actions', [keyBtn]),
+        keyLine
+      ]),
+      card('This week\'s parashah', [
+        UI.field('Reading schedule', schedule, 'The top bar links to this Shabbat\'s reading, from Hebcal. In some ' +
+          'years Israel reads a week ahead, after a holiday\'s second day falls on Shabbat outside Israel.')
       ]),
       card('Appearance', [UI.field('Theme', theme), UI.field('Colours', palette)]),
       UI.el('p.version', { text: 'Tanakh Reader ' + TR.VERSION })

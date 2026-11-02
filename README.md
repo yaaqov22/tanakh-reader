@@ -62,6 +62,17 @@ The voices are the browser's own (the Web Speech API), so nothing leaves the dev
 
 `node tools/test-speech.mjs` checks the preparation over every verse.
 
+### Selecting text
+
+Select a word or phrase in a verse and a menu floats above it:
+- **Translate** (in the Hebrew or the Targum): Claude gives a dictionary entry for a single word, with Klein's etymological entry from Sefaria under it for Hebrew, or a translation of a phrase. Each reader uses their own Anthropic API key (Settings), stored on the device; the browser calls api.anthropic.com directly (`js/claude.js`, `js/translate.js`, `js/sefaria.js`). `node tools/test-translate.mjs` tests the parsing.
+- **Search**: opens the search screen with the selection as its query.
+- **Comment**, **Review note**, **Bookmark**, as before.
+
+### This week's parashah
+
+The top bar links to what the coming Shabbat reads: the parashah, two read together, or a holiday's reading when the holiday falls on Shabbat, with a special Shabbat (Sheqalim, Zakhor, Parah, Ha-Chodesh) or Rosh Chodesh beside it. It comes from [Hebcal](https://www.hebcal.com/home/developer-apis), by the schedule outside Israel or in Israel (Settings), and each week's answer is kept on the device (`js/week.js`). `node tools/test-week.mjs` tests the mapping of Hebcal's names onto the portions.
+
 ## Running it
 
 The app is static files. During development it reads the texts from a sibling checkout, `../tanakh/`, with no token needed:

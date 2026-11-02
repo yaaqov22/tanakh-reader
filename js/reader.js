@@ -641,11 +641,60 @@
 
   /* ----------------------------------------------------- selection toolbar */
 
-  /* Select a phrase in a verse and this floats above it: add a commentary
-     or review note quoting it, or bookmark the verse. */
-  let picked = null;   // { ctx, key, phrase }
+  /* Select a phrase in a verse and this floats above it: search for it, add
+     a commentary or review note quoting it, or bookmark the verse. In the
+     Hebrew or the Targum it can also be translated by Claude (translate.js). */
+  let picked = null;   // { ctx, key, phrase, full (untruncated), lang ('he', 'tg' or 'en'), verse (its element), rect }
+  const transBtn = UI.el('button', {
+    type: 'button', text: 'Translate',
+    onmousedown: function (e) { e.preventDefault(); },   // keep the selection
+    onclick: function () {
+      if (!picked || !live) return;
+      const p = picked;
+      hideSel();
+      const s = window.getSelection();
+      /* Where the selection is now: the page may have scrolled since it was made. */
+      if (s && s.rangeCount) {
+        const r = s.getRangeAt(0).getBoundingClientRect();
+        if (r.width || r.height) p.rect = { top: r.top, bottom: r.bottom, left: r.left, width: r.width };
+      }
+      if (s) s.removeAllRanges();
+      TR.translate.open({
+        text: p.full,
+        kind: TR.claude.isWord(p.full) ? 'word' : 'phrase',
+        lang: p.lang,
+        context: cleanText(p.verse.cloneNode(true), 0),
+        where: [p.ctx.title, F.unitName(p.key)].filter(Boolean).join(', '),
+        key: p.ctx.id + ' ' + p.key,
+        rect: p.rect,
+        onComment: function (gist) {
+          addNote(p.ctx, p.key, 'co', p.phrase).then(function () {
+            const ta = gist && live && live.verses && live.verses.panel &&
+              live.verses.panel.querySelector('.cell.co .note.new textarea');
+            if (!ta) return;
+            ta.value += gist;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.focus();
+          });
+        }
+      });
+    }
+  });
+  /* Search for the selection, the whole of it, on the search screen. */
+  const searchBtn = UI.el('button', {
+    type: 'button', text: 'Search',
+    onmousedown: function (e) { e.preventDefault(); },
+    onclick: function () {
+      if (!picked) return;
+      const q = picked.full.replace(/…$/, '').slice(0, 200).trim();
+      hideSel();
+      const s = window.getSelection();
+      if (s) s.removeAllRanges();
+      if (q) UI.go('search', [q]);
+    }
+  });
   const seltools = UI.el('div.seltools', { role: 'toolbar', 'aria-label': 'Note on the selection' }, [
-    selBtn('co', 'Comment'), selBtn('notes', 'Review note'), UI.el('button', {
+    transBtn, searchBtn, selBtn('co', 'Comment'), selBtn('notes', 'Review note'), UI.el('button', {
       type: 'button', text: 'Bookmark',
       onmousedown: function (e) { e.preventDefault(); },
       onclick: function () {
@@ -689,13 +738,18 @@
 
   function hideSel() { seltools.hidden = true; picked = null; }
 
-  /* The selection's text as read, without the labels or marks. */
-  function phraseOf(range) {
+  /* The selection's text as read, without the labels or marks, cut to `max`
+     characters (120 when not given; 0 for no limit). */
+  function phraseOf(range, max) {
     const box = document.createElement('div');
     box.appendChild(range.cloneContents());
-    box.querySelectorAll('.label, .mark, .chg, .diff').forEach(function (n) { n.remove(); });
+    return cleanText(box, max === undefined ? 120 : max);
+  }
+
+  function cleanText(box, max) {
+    box.querySelectorAll('.label, .mark, .chg, .diff, button').forEach(function (n) { n.remove(); });
     let t = box.textContent.replace(/[*\s]+/g, ' ').trim();
-    if (t.length > 120) t = t.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+    if (max && t.length > max) t = t.slice(0, max - 3).replace(/\s+\S*$/, '') + '…';
     return t;
   }
 
@@ -712,7 +766,7 @@
     if (node.nodeType !== 1) node = node.parentNode;
     const c = node && node.closest('.cell.he, .cell.tg, .cell.en, .sc-text');
     if (!c || c.closest('.editor') || !live.grid.contains(c)) return hideSel();
-    let ctx, key;
+    let ctx, key, verse;
     if (c.classList.contains('sc-text')) {
       /* Side by side, the verse the selection starts in. */
       let start = range.startContainer;
@@ -721,16 +775,23 @@
       if (!vs || !vs._ctx) return hideSel();
       ctx = vs._ctx;
       key = vs.getAttribute('data-key');
+      verse = vs;
     } else {
       const row = c.closest('.row.law');
       if (!row || !row._ctx) return hideSel();
       ctx = row._ctx;
       key = row.getAttribute('data-key');
+      verse = c;
     }
     const phrase = phraseOf(range);
     if (!phrase) return hideSel();
-    picked = { ctx: ctx, key: key, phrase: phrase };
+    const lang = c.classList.contains('he') ? 'he' : c.classList.contains('tg') ? 'tg' : 'en';
     const r = range.getBoundingClientRect();
+    picked = {
+      ctx: ctx, key: key, phrase: phrase, full: phraseOf(range, 0), lang: lang, verse: verse,
+      rect: { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
+    };
+    transBtn.hidden = lang === 'en';
     seltools.hidden = false;
     seltools.style.top = Math.max(0, r.top + window.scrollY - seltools.offsetHeight - 8) + 'px';
     seltools.style.left = Math.max(8, Math.min(window.scrollX + r.left + r.width / 2 - seltools.offsetWidth / 2,
