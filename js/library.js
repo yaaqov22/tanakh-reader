@@ -85,7 +85,7 @@
      that names no other layer, and each book's languages that the reader
      knows. */
   function commentators(data) {
-    const taken = new Set(LAYERS.concat(['tg']));
+    const taken = new Set(LAYERS.concat(F.TRANSLATIONS, ['tg']));
     return ((data && data.commentators) || []).filter(function (c) {
       return c && /^[a-z][a-z0-9]*$/.test(c.id) && !taken.has(c.id) && c.books;
     }).map(function (c) {
@@ -115,6 +115,13 @@
 
     /* The commentators, as the index last loaded lists them (index()). */
     commentators: [],
+
+    /* The English translation chosen in the Display menu: 'en' (JPS 1917,
+       Mechon Mamre's) or one of F.TRANSLATIONS. */
+    translation: function () {
+      const t = TR.device.get('translation');
+      return F.TRANSLATIONS.indexOf(t) >= 0 ? t : 'en';
+    },
 
     /* Whether the notes pane shows notes layer or commentator `id`: as
        chosen in the Display menu (paneShow: id → true or false), and where
@@ -229,7 +236,8 @@
       return aliyotP;
     },
 
-    /* → { id, he, tp, onq, onqk, en,     the documents as they stand, drafts applied
+    /* → { id, he, tp, onq, onqk, en,     the documents as they stand, drafts applied;
+           jps85 | rjps | koren           and the other English translation, if one is chosen
            co, notes, mt,                 (only commentary and notes are ever edited)
            'rashbam-he', 'rashbam-en' …   the commentators' (F.cmLayer), for the
                                           languages the index lists for this book
@@ -266,10 +274,12 @@
           });
           return out;
         }, function () { return []; });
+        /* Of the other translations, only the one chosen. */
+        const tr = lib.translation() === 'en' ? [] : [lib.translation()];
         const sp = Promise.all([TR.drafts.ready(), cms])
           .then(function (r) {
             sec.cms = r[1];
-            return Promise.all(LAYERS.concat(sec.cms).map(load));
+            return Promise.all(LAYERS.concat(sec.cms, tr).map(load));
           })
           .then(function () { return sec; });
         sections.set(id, sp);
@@ -374,7 +384,12 @@
         he = cache[mode] || (cache[mode] = mapText(he, mode === 'plain' ? F.stripAll : F.stripTeamim));
       }
       const tg = mode === 'plain' ? sec.onqk || sec.onq : sec.onq || sec.onqk;
-      return Object.assign({}, sec, { he: he, tg: tg, heMode: mode });
+      /* The English is the translation chosen, when the English is what is
+         chosen to show; in the Targum's place beyond the Torah it is the
+         JPS 1917. */
+      const tr = lib.translation();
+      const en = TR.device.get('beside') === 'en' && tr !== 'en' && sec[tr] ? sec[tr] : sec.en;
+      return Object.assign({}, sec, { he: he, tg: tg, en: en, enLayer: en === sec.en ? 'en' : tr, heMode: mode });
     },
 
     HE_MODES: HE_MODES,
@@ -407,7 +422,7 @@
   /* A commentator shown or hidden: the books are read again, with or
      without its files. */
   TR.bus.on('device', function (patch) {
-    if ('paneShow' in patch) sections.clear();
+    if ('paneShow' in patch || 'translation' in patch) sections.clear();
   });
 
 })(window.TR);

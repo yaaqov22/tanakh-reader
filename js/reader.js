@@ -121,7 +121,11 @@
   let live = null;  // { grid, page, title }: what is on screen, for the selection toolbar and reading aloud
 
   const LAYER_NAME = { he: 'Hebrew', tp: 'punctuated Hebrew', onq: 'Targum', onqk: 'Targum', en: 'English',
+    jps85: 'English', rjps: 'English', koren: 'English',
     co: 'commentary', digest: 'Noahide Digest', notes: 'review notes', mt: 'MT links' };
+  /* The English translations, as the Display menu lists them (lib.translation()). */
+  const TRANSLATION_NAME = { en: 'English (JPS 1917)', jps85: 'English (JPS 1985)',
+    rjps: 'English (Revised JPS 2023)', koren: 'English (The Koren Jerusalem Bible)' };
   /* The notes layers under each verse. The MT links (the halakhot of the
      Mishneh Torah that quote the verse, tools/mt-links.mjs) show and hide as
      the others do, but are generated, and never edited here. */
@@ -292,6 +296,7 @@
   function colLayer(ctx, col) {
     if (col === 'he') return ctx.sec.heMode === 'punct' && ctx.sec.tp ? 'tp' : 'he';
     if (col === 'tg') return ctx.sec.heMode === 'plain' && ctx.sec.onqk ? 'onqk' : 'onq';
+    if (col === 'en') return ctx.sec.enLayer || 'en';
     return col;
   }
 
@@ -935,13 +940,31 @@
       });
     });
 
-    /* One text beside the Hebrew, or none: a choice of one. */
-    const one = function (key, label) {
-      return UI.el('button.dm-item.dm-one', {
-        type: 'button', role: 'radio', 'aria-checked': beside() === key ? 'true' : 'false',
-        onclick: function () { if (beside() !== key) repaint({ beside: key }); }
-      }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span', { text: label })]);
+    /* The text beside the Hebrew: one of the English translations, the
+       Targum, or none. The Targum stays chosen beyond the Torah, where the
+       JPS 1917 English shows in its place. */
+    const raw = TR.device.get('beside');
+    const shown = raw === 'tg' || raw === 'none' ? raw : lib.translation();
+    const translation = UI.select(Object.keys(TRANSLATION_NAME).map(function (k) {
+      return { value: k, label: TRANSLATION_NAME[k] };
+    }).concat([{ value: 'tg', label: 'Targum Onqelos' }, { value: 'none', label: 'None' }]), shown, function () {
+      const v = translation.value;
+      if (v === shown) return;
+      repaint(v === 'tg' || v === 'none' ? { beside: v } : { beside: 'en', translation: v });
+    });
+    translation.classList.add('dm-select');
+    translation.setAttribute('aria-label', 'Translation');
+
+    /* A notes layer or commentator, on or off. */
+    const paneItem = function (c) {
+      const on = lib.shows(c.id);
+      return UI.el('button.dm-item', {
+        type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false',
+        title: [c.en, c.he, c.full].filter(Boolean).join(' · '),
+        onclick: function () { repaint(lib.choiceFor(c.id, !on)); }
+      }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span.dm-name', { text: c.en })]);
     };
+    const classics = commentatorsAZ();
 
     /* A row of buttons choosing one of `opts` ({ value: label }) for device
        setting `key`. */
@@ -961,10 +984,9 @@
       UI.el('div.segs.hemodes', { role: 'group', 'aria-label': 'Hebrew' }, modes),
       UI.el('p.dm-sub', { text: HE_MODE[mode].title }),
 
-      UI.el('div.dm-head', { text: 'Beside the Hebrew' }),
-      UI.el('div', { role: 'radiogroup', 'aria-label': 'Beside the Hebrew' },
-        [one('en', 'English (JPS 1917)'), page.targum ? one('tg', 'Targum Onqelos') : null, one('none', 'Neither: the Hebrew alone')]),
-      page.targum ? UI.el('p.dm-sub', { text: 'Where there is no Targum (beyond the Torah), the English.' }) : null,
+      UI.el('div.dm-head', { text: 'Translation' }),
+      translation,
+      shown === 'tg' ? UI.el('p.dm-sub', { text: 'Where there is no Targum (beyond the Torah), the English (JPS 1917) shows instead.' }) : null,
 
       UI.el('div.dm-head', { text: 'Hebrew on the' }),
       segs('heSide', 'Hebrew on the', { left: 'Left', right: 'Right' }),
@@ -974,19 +996,14 @@
       UI.el('div.dm-head', { text: 'Notes pane' }),
       segs('panePos', 'Notes pane', paneLabels),
 
-      /* What the notes pane shows, in its order, each on or off; and the
-         commentators' language. */
+      /* What the notes pane shows, in its order, each on or off: this
+         project's own layers, then below a line the classical commentators;
+         and the commentators' language. */
       UI.el('div.dm-head', { text: 'Commentators' }),
-      UI.el('div.dm-list', { role: 'group', 'aria-label': 'Commentators' }, PANE_ORDER.map(function (id) {
-        return { id: id, en: ANN_TITLE[id] };
-      }).concat(commentatorsAZ()).map(function (c) {
-        const on = lib.shows(c.id);
-        return UI.el('button.dm-item', {
-          type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false',
-          title: [c.en, c.he, c.full].filter(Boolean).join(' · '),
-          onclick: function () { repaint(lib.choiceFor(c.id, !on)); }
-        }, [UI.el('span.dm-check', [TR.icons.check()]), UI.el('span.dm-name', { text: c.en })]);
+      UI.el('div.dm-list', { role: 'group', 'aria-label': 'Notes' }, PANE_ORDER.map(function (id) {
+        return paneItem({ id: id, en: ANN_TITLE[id] });
       })),
+      classics.length ? UI.el('div.dm-list.dm-classics', { role: 'group', 'aria-label': 'Classical commentators' }, classics.map(paneItem)) : null,
       lib.commentators.length ? [
         UI.el('p.dm-sub', { text: 'The commentators in' }),
         segs('cmLang', 'The commentators\u2019 language', { he: 'Hebrew', en: 'English', both: 'Both' })

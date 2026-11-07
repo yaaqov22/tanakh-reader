@@ -986,6 +986,10 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 /* What the notes pane shows: a list in two columns, to keep the menu short. */
 .dm-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 4px; }
 .dm-list .dm-item { padding: 5px 4px; font-size: 13.5px; }
+/* …this project's own notes, then below a line the classical commentators. */
+.dm-classics { margin: 5px 0 0; padding-top: 5px; border-top: 1px solid var(--line-soft); }
+/* The translation beside the Hebrew. */
+.dispmenu .dm-select { display: block; width: 100%; min-height: 36px; padding: 6px 8px; font-size: 14px; }
 .dm-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dm-item {
   display: flex;

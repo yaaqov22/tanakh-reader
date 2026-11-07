@@ -58,6 +58,7 @@
     heMode: 'teamim',   // how the Hebrew shows: plain, pointed, punct (Mechon Mamre's punctuation) or teamim
     layout: 'lines',    // the reader: 'lines' (interlinear, a row per verse) or 'parallel' (the Hebrew and one text or none, each set as in a scroll, side by side)
     beside: 'en',       // the text beside the Hebrew, in either layout: 'en', 'tg' or 'none' (the Hebrew alone)
+    translation: 'en',  // …which English, when it is 'en': 'en' (JPS 1917), 'jps85', 'rjps' or 'koren' (format.js TRANSLATIONS)
     heSide: 'right',    // which side of the page the Hebrew is on, in either layout: 'left' or 'right'
     readingDay: 'weekday',  // a holiday's aliyot as divided on a 'weekday' or on 'shabbat'
     paneShow: {},       // what the notes pane shows, as chosen in the Display menu: id → true/false, for notes layers ('notes', 'co', 'mt', 'digest') and commentators (Commentators/index.json ids); the rest as lib.shows() defaults
