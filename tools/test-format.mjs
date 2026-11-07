@@ -153,11 +153,14 @@ test('a verse keeps its line breaks, marks and qere through a round trip', () =>
 if (fs.existsSync(opt.root)) {
   const read = p => fs.readFileSync(path.join(opt.root, p), 'utf8');
   const walk = d => fs.readdirSync(path.join(opt.root, d)).map(f => `${d}/${f}`);
+  const isDir = d => fs.statSync(path.join(opt.root, d)).isDirectory();
   const files = ['Hebrew', 'Targum', 'Translation', 'Commentary', 'Digest', 'Notes', 'MT']
-    .filter(d => fs.existsSync(path.join(opt.root, d))).flatMap(walk);
-  /* The commentators: a folder each, beside their index.json and README. */
-  if (fs.existsSync(path.join(opt.root, 'Commentators'))) {
-    for (const d of walk('Commentators')) if (fs.statSync(path.join(opt.root, d)).isDirectory()) files.push(...walk(d));
+    .filter(d => fs.existsSync(path.join(opt.root, d))).flatMap(walk)
+    .filter(f => !f.endsWith('/README.md') && !isDir(f));   // Translation/'s README says where the translations came from
+  /* The commentators and the other translations: a folder each, beside
+     their index.json or README. */
+  for (const top of ['Commentators', 'Translation']) {
+    if (fs.existsSync(path.join(opt.root, top))) for (const d of walk(top)) if (isDir(d)) files.push(...walk(d));
   }
   const docs = new Map();   // path → doc
 
@@ -179,7 +182,7 @@ if (fs.existsSync(opt.root)) {
     assert.deepEqual(bad, []);
   });
 
-  const TEXTS = ['he', 'tp', 'onq', 'onqk', 'en'];
+  const TEXTS = ['he', 'tp', 'onq', 'onqk', 'en'].concat(F.TRANSLATIONS);
   const shape = d => d.chapters.map(c => `${c.key}:${c.laws.map(l => l.n).join(',')}`).join(' | ');
 
   test('every edition lines up with the cantillated Hebrew, verse for verse', () => {
@@ -192,7 +195,9 @@ if (fs.existsSync(opt.root)) {
       for (const layer of TEXTS.slice(1)) {
         const d = docs.get(p[layer]);
         const torah = +id.slice(0, 2) <= 5;
-        if (!d) { if (layer === 'tp' || layer === 'en' || torah) bad.push(`${id}: no ${layer}`); continue; }
+        /* The other translations may be missing (a branch from before them), but line up where they are. */
+        const optional = F.TRANSLATIONS.indexOf(layer) >= 0 || !(layer === 'tp' || layer === 'en' || torah);
+        if (!d) { if (!optional) bad.push(`${id}: no ${layer}`); continue; }
         if (shape(d) !== shape(he)) bad.push(`${id} ${layer}: ${shape(d).slice(0, 60)} ≠ ${shape(he).slice(0, 60)}`);
       }
     }
