@@ -37,7 +37,8 @@
  *   - Verses: en "3:12 text", he "**ג,יב** text" (bold, as in the Mechon Mamre
  *     whole-book files).
  *   - Inside a verse: Mechon Mamre's section marks {פ} {ס} {ר} {ש} (en {P}
- *     {S} {N}) as written, a newline for a line break, <big>/<small>/<sup> for
+ *     {S} {N}) as written, the poetry books' line and paragraph ends {/}
+ *     {//} (written by the import), a newline for a line break, <big>/<small>/<sup> for
  *     large, small and suspended letters, and ktiv (qere) for the read form.
  *   - Notes: "[^3.12.1]: text", continuation paragraphs indented with one tab.
  */

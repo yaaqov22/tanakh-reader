@@ -143,6 +143,38 @@ function verseText(html, where, ed) {
     .join('\n');
 }
 
+// How a verse's HTML ends: 'line' (a <BR>: what follows starts on a new
+// line), 'para' (a </P>: a new paragraph) or null (the text runs on).
+function verseEnd(html) {
+  const s = html.replace(/<A HREF="[^"]*"[^>]*>\*<\/A>/gi, '').replace(/(?:\s|&nbsp;)+$/i, '');
+  return /<BR\s*\/?>$/i.test(s) ? 'line' : /<\/P>$/i.test(s) ? 'para' : null;
+}
+
+// Psalms, Proverbs, Job 3:2–42:6 and Ecclesiastes 3:2–8 are set a line to
+// a verse (Soferim 13:1), and Mechon Mamre marks it only by where the verse's
+// HTML ends, which the verse's text would lose. Where a verse ends a line or
+// a paragraph with no mark of its own, it gets one: {/} the end of a line,
+// {//} the end of a paragraph (Psalm 119's stanzas, Proverbs' sections). The
+// last verse of a chapter ends in </P> whatever it is, so it ends a line
+// only if the verse before it did. Elsewhere a break at a verse's end comes
+// after a section mark ({פ} {ר}; in the Targum of Numbers 6:23–26, {ס} and
+// the start or end of an editor's note), which says it already.
+const MARKED = /\{[^{}\s]{1,2}\}(?:\s*\([^()]*)?[\s)]*$/;
+function lineEnds(verses) {
+  let prev = false;
+  verses.forEach((v, i) => {
+    const last = i === verses.length - 1;
+    const end = last ? (prev ? 'line' : null) : v.end;
+    prev = false;
+    if (end && !MARKED.test(v.text)) {
+      v.text += end === 'line' ? ' {/}' : ' {//}';
+      prev = true;
+    }
+    delete v.end;
+  });
+  return verses;
+}
+
 // → { heading, verses: [{ n, text }] }
 function parseChapter(ed, file, bookCode, chN) {
   const html = readFile(ed, file);
@@ -190,9 +222,9 @@ function parseChapter(ed, file, bookCode, chN) {
     const text = prefix + verseText(seg, `${where}#${n}`, ed);
     if (!text) throw new Error(`${where}: verse ${n} is empty`);
     if (verses.length + 1 !== n) throw new Error(`${where}: verse ${n} out of order`);
-    verses.push({ n, text });
+    verses.push({ n, text, end: verseEnd(seg) });
   }
-  return { heading, verses };
+  return { heading, verses: lineEnds(verses) };
 }
 
 /* ------------------------------------------------------------------ */

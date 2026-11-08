@@ -35,9 +35,9 @@ In the reader, the header names the book and chapter (or the parashah), between 
 
 The first buttons in the reader's header switch between them.
 
-- **Interlinear**: one row per verse, the texts side by side, the commentary, review notes and MT links under each verse. The section marks show as they stand in the text (`{פ}`, `{ס}`, `{ר}`, `{ש}`, and the English's `{P}`, `{S}`, `{N}`), small and grey, and nothing is laid out by them.
-- **Side by side**: the Hebrew at the right and one other text beside it (an English translation, or the Targum on the Torah, chosen in the Display menu), each laid out as the scroll is, by its own section marks (the English's `{P}`, `{S}` and `{N}` read as `{פ}`, `{ס}` and `{ר}`), each with its own verse numbers. The columns are lined up only where both have a full break (an open section, a song's line end or a blank line, but not a closed section) after the same verse: there both start level again, and in between each runs free in its own shape. Selecting a verse in either lights it in both, and its commentary, review notes and MT links show in a pane across the bottom of the screen, to read and edit there (and to bookmark the verse); its arrows step to the previous and next verse. The pane opens and closes from its bar, and its top edge drags to make it taller or shorter; it stays open or closed, and as tall, whatever verse is chosen, until changed. A book's or chapter's general commentary stands above the columns, opened by its marker. On narrow screens each section's Hebrew goes above its other text.
-- **Scroll**: the Hebrew alone, set as a scroll sets it. An open section (`{פ}`) ends its paragraph, and what follows starts on a new line. A closed section (`{ס}`) is a gap within the line. In the songs and lists written in their own layout (the Song of the Sea, Ha'azinu, the kings of Joshua 12, the sons of Haman), each line ends at `{ר}` and its parts are spread across the column, which gives the brick patterns. `{ש}` is a blank line. The verse numbers stand in a margin at the right, each level with the line its verse starts on, with a dot when the verse has commentary (grey) or review notes (brown). Select a verse, by its number or its text, to open it in the panel beside the scroll: its translation and Targum, and its commentary and review notes, which are read and edited there as in the interlinear rows. On narrow screens the panel rises from the bottom. **j** / **k** move to the next and previous verse, and **Esc** closes it.
+- **Interlinear**: one row per verse, the texts side by side, the commentary, review notes and MT links under each verse. The section marks show as they stand in the text (`{פ}`, `{ס}`, `{ר}`, `{ש}`, and the English's `{P}`, `{S}`, `{N}`), small and grey, and nothing is laid out by them. The poetry books' line ends (`{/}`, `{//}`) say nothing here, a verse to a row, and don't show.
+- **Side by side**: the Hebrew at the right and one other text beside it (an English translation, or the Targum on the Torah, chosen in the Display menu), each laid out as the scroll is, by its own section marks (the English's `{P}`, `{S}` and `{N}` read as `{פ}`, `{ס}` and `{ר}`), each with its own verse numbers. The columns are lined up only where both have a full break (an open section, a song's or poem's line end or a blank line, but not a closed section) after the same verse: there both start level again, and in between each runs free in its own shape. Selecting a verse in either lights it in both, and its commentary, review notes and MT links show in a pane across the bottom of the screen, to read and edit there (and to bookmark the verse); its arrows step to the previous and next verse. The pane opens and closes from its bar, and its top edge drags to make it taller or shorter; it stays open or closed, and as tall, whatever verse is chosen, until changed. A book's or chapter's general commentary stands above the columns, opened by its marker. On narrow screens each section's Hebrew goes above its other text.
+- **Scroll**: the Hebrew alone, set as a scroll sets it. An open section (`{פ}`) ends its paragraph, and what follows starts on a new line. A closed section (`{ס}`) is a gap within the line. In the songs and lists written in their own layout (the Song of the Sea, Ha'azinu, the kings of Joshua 12, the sons of Haman), each line ends at `{ר}` and its parts are spread across the column, which gives the brick patterns. Psalms, Proverbs, Job (3:2–42:6) and Ecclesiastes 3:2–8 are set a line to a verse, as Masekhet Soferim 13:1 has them written: each line ends at `{/}` (or `{//}`, which ends a paragraph too, as between Psalm 119's stanzas), a long verse takes a second line, and the wide gap between a verse's halves spreads them across the column. `{ש}` is a blank line. The verse numbers stand in a margin at the right, each level with the line its verse starts on, with a dot when the verse has commentary (grey) or review notes (brown). Select a verse, by its number or its text, to open it in the panel beside the scroll: its translation and Targum, and its commentary and review notes, which are read and edited there as in the interlinear rows. On narrow screens the panel rises from the bottom. **j** / **k** move to the next and previous verse, and **Esc** closes it.
 
 Everything else about how the text looks is in the **Display** menu, whose button shows the Hebrew's current mode: the Hebrew's four modes and which columns show. In the scroll layout those are the columns shown in the panel.
 
@@ -133,7 +133,7 @@ To add a commentator, add it to `tools/commentators.json` (Sefaria's versions of
 
 It builds the English translations beside the JPS 1917 from Sefaria: `jps85` (Tanakh: The Holy Scriptures, JPS 1985), `rjps` (The JPS Tanakh: Gender-Sensitive Edition, the Revised JPS of 2023) and `koren` (the Koren Jerusalem Bible), all three **CC-BY-NC: non-commercial use only**. `--fetch` downloads each book's version into the texts' `Original/Sefaria/`; without it the tool rebuilds from what is there. It writes `../tanakh/Translation/<id>/{book}-en.md` (a folder for each translation, as the commentators have, beside the JPS 1917 files) and `Translation/README.md` (the sources and their licences); `--only rjps` builds one.
 
-Each file takes the JPS 1917 file's chapters and verses, numbered as Mechon Mamre numbers them (as for the commentators), so it lines up with the Hebrew verse for verse, and its section marks (`{P}` `{S}` `{N}`) at the end of the verse, or where two of Sefaria's verses become one. The text is plain: footnotes, italics and bold are left out, small capitals become capitals ("LORD"), and poetry keeps its line breaks (which the side-by-side layout shows). The reader reads a book's translation only when it is the one chosen.
+Each file takes the JPS 1917 file's chapters and verses, numbered as Mechon Mamre numbers them (as for the commentators), so it lines up with the Hebrew verse for verse, and its section marks (`{P}` `{S}` `{N}`, and the poetry books' `{/}` `{//}`) at the end of the verse, or where two of Sefaria's verses become one. The text is plain: footnotes, italics and bold are left out, small capitals become capitals ("LORD"), and poetry keeps its line breaks (which the side-by-side layout shows). The reader reads a book's translation only when it is the one chosen.
 
 To add a translation, add its id to `TRANSLATIONS` in `js/format.js` and to the tool's list, and its name to `TRANSLATION_NAME` in `js/reader.js`.
 
@@ -162,6 +162,7 @@ Book ids are Mechon Mamre's: `01`–`05` are the Torah, `08a`/`08b` are Samuel, 
 Inside a verse:
 - `{פ}` `{ס}` `{ר}` `{ש}` are Mechon Mamre's section and layout marks (`{P}` `{S}` `{N}` in the English).
 - A newline is a line end (in the songs and lists, as `{ר}` is).
+- `{/}` and `{//}` end a line and a paragraph in the poetry books (Psalms, Proverbs, Job 3:2–42:6, Ecclesiastes 3:2–8), which are set a line to a verse. Mechon Mamre has no mark for these, only its HTML (a `<BR>` or `</P>` at the verse's end), so the import writes them where a verse ends a line or paragraph with no mark of its own. Four spaces part a verse's two halves; before a `(…)` they are a word read but not written (Ruth 3:5).
 - `<big>`, `<small>` and `<sup>` mark large, small and suspended letters.
 - `(…)` is the qere.
 
@@ -179,9 +180,14 @@ Inside a verse:
 "$NODE" tools/test-submit.mjs
 ```
 
+```bash
+"$NODE" tools/test-scroll.mjs --root ../tanakh
+```
+
 - `test-format` covers the parser and the whole corpus: canonical round trip, alignment of every edition, `index.json`, and the parashot tiling.
 - `test-edit` covers editing notes and the round-trip guard.
 - `test-submit` covers merging and submitting against an in-memory fake GitHub.
+- `test-scroll` covers the scroll and side-by-side layout's marks, and over the corpus, that the poetry books come out a line to a verse with their columns in step.
 
 ## Code
 

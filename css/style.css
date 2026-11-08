@@ -1054,6 +1054,7 @@ button.annhead > svg { width: 14px; height: 14px; flex: none; stroke-width: 2.2;
 /* A line of a song or list: its parts spread across the column. */
 .sc-line { display: flex; flex-wrap: wrap; gap: 0 2.5em; }
 .sc-line.spread { justify-content: space-between; }
+.sc-line.end { margin-bottom: 0.35em; }
 .sc-blank { height: 1.9em; }
 
 /* A verse's pieces, lit together on hover, held when chosen. */
