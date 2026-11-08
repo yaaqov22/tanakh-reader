@@ -26,12 +26,15 @@
 
   /* The marks inside a verse of the texts (format.js): Mechon Mamre's
      section marks, large, small and suspended letters, the read form (qere)
-     in parentheses, and the wide gap between a poem's half-verses (which
-     both views keep: it is how the poetry books are set, not a mark). */
+     in parentheses, the poetry books' line and paragraph ends (which say
+     nothing here, a verse to a row, and are left out), and the wide gap
+     between a poem's half-verses (which both views keep: it is how the
+     poetry books are set, not a mark). */
   const VERSE = new RegExp([
     '\\{([\u05E4\u05E1\u05E8\u05E9PSN])\\}', // 1  {פ} {ס} {ר} {ש}, en {P} {S} {N}
     '<(big|small|sup)>([^<]*)</\\2>',     // 2,3  <big>בְּ</big>
     '\\(([^()]*)\\)',                       // 4  (qere)
+    '[ \\t]*(\\{\\/\\/?\\})',               // 5  {/} {//}
     ' {4}'                                  //    the gap between half-verses
   ].join('|'));
 
@@ -78,6 +81,8 @@
           const q = span('qere', null, m[4].trim() ? 'Read (qere)' : 'Written but not read', parent);
           q.textContent = '(' + m[4] + ')';
         } else breaks(m[0], parent);
+      } else if (m[5] !== undefined) {
+        // a line's or paragraph's end: nothing to show
       } else {
         span('gap', null, null, parent);
       }

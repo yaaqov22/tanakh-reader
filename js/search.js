@@ -87,7 +87,7 @@
   /* Markdown and marks out, text in: what a reader sees, as one string. */
   function plainOf(md) {
     return md
-      .replace(/\s*\{[^}\s]\}/g, '')                   // {פ} {ס} {P} …
+      .replace(/\s*\{[^}\s]{1,2}\}/g, '')              // {פ} {ס} {P} {/} {//} …
       .replace(/<\/?(big|small|sup)>/g, '')
       .replace(/\*\*|\*/g, '')
       .replace(/\\([\\`*_{}\[\]()#+\-.!~>|])/g, '$1')

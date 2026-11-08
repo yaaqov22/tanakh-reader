@@ -9,6 +9,16 @@
      {ר}  the end of a line, in those songs and lists
      {ש}  a blank line (and the blank lines at the end of a book)
 
+   Psalms, Proverbs, Job 3:2–42:6 and Ecclesiastes 3:2–8 are set a line to
+   a verse (Soferim 13:1), each line's two halves spread apart. Mechon Mamre
+   marks that only by its HTML, so the import (tools/import.mjs) writes it as
+   marks of its own, at the end of a verse:
+     {/}   the end of a line
+     {//}  the end of a paragraph (Psalm 119's stanzas, Proverbs' sections)
+   and the wide gap between the halves ("    ") parts a line as {ס} does in
+   a song. A gap before a read form, "    (אֵלַי)", is a word read but not
+   written (Ruth 3:5), not a gap between halves.
+
    A newline inside a verse is a line end too. Lines run across verses (the
    Song of the Sea's second line ends in 15:1 and goes on into 15:2), so the
    layout is built from the passage's text as one stream, not verse by verse.
@@ -16,10 +26,12 @@
    The stream is cut into blocks:
      a paragraph   ended by {פ} (or the passage's end): prose, justified, its
                    closed sections gaps within it
-     a line        ended by {ר} or a newline: its parts, split at {ס}, are
-                   spread across the column — two parts to the edges, three
-                   to the edges and the middle — which is how the brick
-                   patterns of the songs and the lists come out
+     a line        ended by {ר}, {/} or a newline: its parts, split at {ס}
+                   or a gap, are spread across the column — two parts to the
+                   edges, three to the edges and the middle — which is how
+                   the brick patterns of the songs and the lists come out,
+                   and the halves of the poetry books' verses
+                   ended by {//}, the same, with a paragraph's space after it
      a blank       {ש}
 
    Each verse's text is one or more pieces (span.vs[data-key]): one, or
@@ -41,10 +53,14 @@
   const UI = TR.ui;
   const F = TR.format;
 
-  const MARK = /\{([פסרשPSN])\}|\n/g;
-  const KIND = { 'פ': 'pe', 'ס': 'samekh', 'ר': 'line', 'ש': 'blank', 'P': 'pe', 'S': 'samekh', 'N': 'line' };
+  const MARK = /\{([פסרשPSN]|\/\/?)\}|(\n)| {4}(?!\()/g;
+  const KIND = {
+    'פ': 'pe', 'ס': 'samekh', 'ר': 'line', 'ש': 'blank', 'P': 'pe', 'S': 'samekh', 'N': 'line',
+    '/': 'line', '//': 'stanza'
+  };
 
-  /* A verse's text as [{ text } | { mark }], the marks split out. */
+  /* A verse's text as [{ text } | { mark }], the marks split out (a gap
+     between halves is a 'half'). */
   function tokens(text) {
     const out = [];
     let at = 0;
@@ -52,7 +68,7 @@
     for (let m; (m = MARK.exec(text));) {
       const t = text.slice(at, m.index).trim();
       if (t) out.push({ text: t });
-      out.push({ mark: m[1] ? KIND[m[1]] : 'line' });
+      out.push({ mark: m[1] ? KIND[m[1]] : m[2] ? 'line' : 'half' });
       at = m.index + m[0].length;
     }
     const t = text.slice(at).trim();
@@ -61,7 +77,8 @@
   }
 
   /* verses: [{ key, text, ... }] in reading order → blocks:
-     [{ kind: 'para'|'line', parts: [[{ v, text }]] } | { kind: 'blank' }] */
+     [{ kind: 'para'|'line', parts: [[{ v, text }]], end? } | { kind: 'blank' }]
+     (`end`: a line that ends a paragraph, {//}) */
   function blocks(verses) {
     const out = [];
     let cur = null;
@@ -69,18 +86,29 @@
       if (!cur) cur = { parts: [[]] };
       return cur.parts[cur.parts.length - 1];
     };
+    /* A paragraph's end after a poem's halves ({פ} or {ש} after the last
+       verse of Ecclesiastes 3:2–8 or of Proverbs) ends their line. */
     const close = function (kind) {
       if (cur) {
         const parts = cur.parts.filter(function (p) { return p.length; });
-        if (parts.length) out.push({ kind: kind, parts: parts });
+        const halves = cur.halves && kind === 'para';
+        if (parts.length) out.push(halves ? { kind: 'line', parts: parts, end: true } : { kind: kind, parts: parts });
       }
       cur = null;
     };
     verses.forEach(function (v) {
       tokens(v.text).forEach(function (t) {
         if (t.text) part().push({ v: v, text: t.text });
-        else if (t.mark === 'samekh') { if (part().length) cur.parts.push([]); }
+        else if (t.mark === 'samekh' || t.mark === 'half') {
+          if (part().length) cur.parts.push([]);
+          if (t.mark === 'half') cur.halves = true;
+        }
         else if (t.mark === 'line') close('line');
+        else if (t.mark === 'stanza') {
+          close('line');
+          const last = out[out.length - 1];
+          if (last && last.kind !== 'blank') last.end = true;
+        }
         else if (t.mark === 'pe') close('para');
         else { close('para'); out.push({ kind: 'blank' }); }
       });
@@ -109,12 +137,13 @@
   }
 
   /* Does a verse's text end with a full break: the end of a paragraph, a
-     line or a blank line ({פ} {ר} {ש}, the English's {P} {N}, a newline)?
-     Not a closed section ({ס} {S}), which goes on along the line. */
+     line or a blank line ({פ} {ר} {ש} {/} {//}, the English's {P} {N}, a
+     newline)? Not a closed section ({ס} {S}) or a gap, which go on along
+     the line. */
   function breaksAfter(text) {
     const t = tokens(text);
     const last = t[t.length - 1];
-    return !!last && !!last.mark && last.mark !== 'samekh';
+    return !!last && !!last.mark && last.mark !== 'samekh' && last.mark !== 'half';
   }
 
   /* Two columns' verses, side by side, cut wherever both break fully after
@@ -149,7 +178,7 @@
     blocks(verses).forEach(function (b) {
       if (b.kind === 'blank') { text.appendChild(UI.el('div.sc-blank')); return; }
       if (b.kind === 'line') {
-        const line = UI.el('div.sc-line' + (b.parts.length > 1 ? '.spread' : ''));
+        const line = UI.el('div.sc-line' + (b.parts.length > 1 ? '.spread' : '') + (b.end ? '.end' : ''));
         b.parts.forEach(function (p) { line.appendChild(partEl('span.sc-part', p, seen, piece, opts)); });
         text.appendChild(line);
         return;

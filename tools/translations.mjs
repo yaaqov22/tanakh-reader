@@ -14,8 +14,9 @@
 // Each file has the shape of the JPS 1917 English: the same chapters and
 // verses, in Mechon Mamre's numbering (Sefaria's is moved to it: sefaria.mjs,
 // toMM), so it lines up with the Hebrew verse for verse. A verse the
-// translation lacks is left empty. The section marks ({P} {S} {N}) are the
-// JPS 1917 English's, at the end of the verse, or where two of Sefaria's
+// translation lacks is left empty. The section marks ({P} {S} {N}, and the
+// poetry books' line and paragraph ends {/} {//}) are the JPS 1917
+// English's, at the end of the verse, or where two of Sefaria's
 // verses are joined into one. The translators' footnotes are left out (the
 // downloads keep them), and so are italics and bold; poetry keeps its line breaks.
 //
@@ -70,7 +71,7 @@ function verseText(html) {
 
 /* A verse of the JPS 1917 English, split at its section marks: the marks
    within it (each with text after it) and those it ends with. */
-const MARK = /\s*(\{[PSN]\})\s*/g;
+const MARK = /\s*(\{(?:[PSN]|\/\/?)\})\s*/g;
 function marksOf(law) {
   const text = [law.text, ...law.extra].join('\n');
   const inner = [], end = [];
